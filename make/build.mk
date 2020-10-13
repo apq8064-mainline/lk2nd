@@ -6,6 +6,11 @@ $(OUTBIN): $(OUTELF)
 	$(NOECHO)$(SIZE) $<
 	$(NOCOPY)$(OBJCOPY) -O binary $< $@
 
+$(OUTZIMAGEDTB): $(OUTBIN) $(DTBS)
+	@echo generating zImage+dtb: $@
+	$(NOECHO)gzip -c $(OUTBIN) > $@
+	$(NOECHO)cat $(DTBS) >> $@
+
 ifeq ($(ENABLE_TRUSTZONE), 1)
 $(OUTELF): $(ALLOBJS) $(LINKER_SCRIPT) $(OUTPUT_TZ_BIN)
 	@echo linking $@
@@ -39,5 +44,28 @@ $(OUTPUT_TZ_BIN): $(INPUT_TZ_BIN)
 	$(NOECHO)$(OBJCOPY) -I binary -B arm -O elf32-littlearm $(INPUT_TZ_BIN) $(OUTPUT_TZ_BIN)
 endif
 
-include arch/$(ARCH)/compile.mk
+$(OUTELF_STRIP): $(OUTELF)
+	@echo generating stripped elf: $@
+	$(NOECHO)$(STRIP) -S $< -o $@
 
+$(BUILDDIR)/%.dtb: %.dts
+	@$(MKDIR)
+	@echo compiling $<
+	$(NOECHO)dtc -O dtb -o $@ $<
+
+$(OUTDTIMG): $(DTBS)
+	mkdir -p $(BUILDDIR)/dts
+	$(NOECHO)dtc -O dtb -o $@ $<
+	$(NOECHO)scripts/dtbTool -o $@ $(BUILDDIR)/dts
+
+$(OUTBOOTIMG): $(OUTBIN) $(OUTZIMAGEDTB) $(OUTDTIMG)
+	$(NOECHO)scripts/mkbootimg \
+		--kernel=$(OUTZIMAGEDTB) \
+		--ramdisk=/dev/null \make
+		--dt=$(OUTDTIMG) \
+		--base=$(ANDROID_BOOT_BASE) \
+		--output=$@ \
+		--cmdline="$(ANDROID_BOOT_CMDLINE)"
+	$(NOECHO)echo -n SEANDROIDENFORCE >> $@
+
+include arch/$(ARCH)/compile.mk
