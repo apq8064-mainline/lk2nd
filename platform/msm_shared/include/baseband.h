@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -40,7 +40,7 @@ enum baseband {
 	BASEBAND_DSDA = 7,
 	BASEBAND_DSDA2 = 8,
 	BASEBAND_SGLTE2 = 9,
-	BASEBAND_MDM2 = 10,
+	BASEBAND_AUTO = 0xA,
 	BASEBAND_32BITS = 0x7FFFFFFF
 };
 

@@ -316,36 +316,6 @@ int fdt_appendprop(void *fdt, int nodeoffset, const char *name,
 	return 0;
 }
 
-int fdt_appendprop_str(void *fdt, int nodeoffset, const char *name,
-		   const void *val, int len)
-{
-	struct fdt_property *prop;
-	int err, oldlen, newlen;
-
-	FDT_RW_CHECK_HEADER(fdt);
-
-	prop = fdt_get_property_w(fdt, nodeoffset, name, &oldlen);
-	if (prop) {
-		newlen = len + oldlen;
-		err = _fdt_splice_struct(fdt, prop->data,
-					 FDT_TAGALIGN(oldlen),
-					 FDT_TAGALIGN(newlen));
-		if (err)
-			return err;
-		prop->len = cpu_to_fdt32(newlen);
-
-		/* Add space to separate the appended strings */
-		prop->data[oldlen-1] = 0x20;
-		memcpy(prop->data + oldlen, val, len);
-	} else {
-		err = _fdt_add_property(fdt, nodeoffset, name, len, &prop);
-		if (err)
-			return err;
-		memcpy(prop->data, val, len);
-	}
-	return 0;
-}
-
 int fdt_delprop(void *fdt, int nodeoffset, const char *name)
 {
 	struct fdt_property *prop;
@@ -370,7 +340,6 @@ int fdt_add_subnode_namelen(void *fdt, int parentoffset,
 	int err;
 	uint32_t tag;
 	uint32_t *endtag;
-	uint32_t count = 0;
 
 	FDT_RW_CHECK_HEADER(fdt);
 
@@ -380,19 +349,12 @@ int fdt_add_subnode_namelen(void *fdt, int parentoffset,
 	else if (offset != -FDT_ERR_NOTFOUND)
 		return offset;
 
-	/* Try to place the new node after the parent's properties and all the sub nodes already present. */
-	tag = fdt_next_tag(fdt, parentoffset, &nextoffset); /* skip the BEGIN_NODE */
+	/* Try to place the new node after the parent's properties */
+	fdt_next_tag(fdt, parentoffset, &nextoffset); /* skip the BEGIN_NODE */
 	do {
-		if (tag == FDT_BEGIN_NODE)
-			count++;
-		if (tag == FDT_END_NODE)
-			count--;
-		if (!count)
-			break;
-
 		offset = nextoffset;
 		tag = fdt_next_tag(fdt, offset, &nextoffset);
-	} while ((tag == FDT_PROP) || (tag == FDT_NOP) || (tag == FDT_BEGIN_NODE) || (tag == FDT_END_NODE));
+	} while ((tag == FDT_PROP) || (tag == FDT_NOP));
 
 	nh = _fdt_offset_ptr_w(fdt, offset);
 	nodelen = sizeof(*nh) + FDT_TAGALIGN(namelen+1) + FDT_TAGSIZE;

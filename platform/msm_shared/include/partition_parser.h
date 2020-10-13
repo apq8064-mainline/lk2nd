@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -25,11 +25,6 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-#ifndef __PARTITION_PARSER_H
-#define __PARTITION_PARSER_H
-
-#include <mmc.h>
 
 #define INVALID_PTN               -1
 
@@ -73,7 +68,6 @@
 #define PARTITION_TYPE_GUID_SIZE   16
 #define UNIQUE_PARTITION_GUID_SIZE 16
 #define NUM_PARTITIONS             128
-#define PART_ATT_READONLY_OFFSET   60
 
 /* Some useful define used to access the MBR/EBR table */
 #define BLOCK_SIZE                0x200
@@ -113,11 +107,6 @@
 #define MBR_PROTECTED_TYPE        0xEE
 #define MBR_SSD_TYPE              0x5D
 
-#define GET_LWORD_FROM_BYTE(x)    ((unsigned)*(x) | \
-        ((unsigned)*(x+1) << 8) | \
-        ((unsigned)*(x+2) << 16) | \
-        ((unsigned)*(x+3) << 24))
-
 #define GET_LLWORD_FROM_BYTE(x)    ((unsigned long long)*(x) | \
         ((unsigned long long)*(x+1) << 8) | \
         ((unsigned long long)*(x+2) << 16) | \
@@ -156,30 +145,38 @@ struct partition_entry {
 	unsigned long long size;
 	unsigned long long attribute_flag;
 	unsigned char name[MAX_GPT_NAME_SIZE];
-	uint8_t lun;
 };
 
-/* Partition info requested by app layer */
-struct partition_info {
-	uint64_t offset;
-	uint64_t size;
-};
-
-int partition_get_index(const char *name);
+static void mbr_fill_name(struct partition_entry *partition_ent,
+			  unsigned int type);
+unsigned int mmc_boot_read_gpt(struct mmc_boot_host *mmc_host,
+			       struct mmc_boot_card *mmc_card);
+unsigned int mmc_boot_read_mbr(struct mmc_boot_host *mmc_host,
+			       struct mmc_boot_card *mmc_card);
+unsigned partition_get_index(const char *name);
 unsigned long long partition_get_size(int index);
 unsigned long long partition_get_offset(int index);
-uint8_t partition_get_lun(int index);
-unsigned int partition_read_table();
-unsigned int write_partition(unsigned size, unsigned char *partition);
-bool partition_gpt_exists();
-/* Return the partition offset & size to app layer
- * Caller should validate the size & offset !=0
- */
+unsigned int partition_verify_mbr_signature(unsigned size,
+					    unsigned char *buffer);
+unsigned int mbr_partition_get_type(unsigned size, unsigned char *partition,
+				    unsigned int *partition_type);
+unsigned int partition_get_type(unsigned size, unsigned char *partition,
+				unsigned int *partition_type);
+unsigned int partition_read_table(struct mmc_boot_host *mmc_host,
+				  struct mmc_boot_card *mmc_card);
+unsigned int partition_parse_gpt_header(unsigned char *buffer,
+					unsigned long long *first_usable_lba,
+					unsigned int *partition_entry_size,
+					unsigned int *header_size,
+					unsigned int *max_partition_count);
 
-struct partition_info partition_get_info(const char *name);
+unsigned int write_mbr(unsigned size, unsigned char *mbrImage,
+		       struct mmc_boot_host *mmc_host,
+		       struct mmc_boot_card *mmc_card);
+unsigned int write_gpt(unsigned size, unsigned char *gptImage,
+		       struct mmc_boot_host *mmc_host,
+		       struct mmc_boot_card *mmc_card);
+unsigned int write_partition(unsigned size, unsigned char *partition);
 
 /* For Debugging */
 void partition_dump(void);
-/* Read only attribute for partition */
-int partition_read_only(int index);
-#endif

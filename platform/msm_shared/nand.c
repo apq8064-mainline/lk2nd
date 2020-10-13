@@ -1,7 +1,8 @@
 /*
  * Copyright (c) 2008, Google Inc.
  * All rights reserved.
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2011, The Linux Foundation. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -3164,7 +3165,6 @@ static void flash_read_id(dmov_s * cmdlist, unsigned *ptrlist)
 {
 	int dev_found = 0;
 	unsigned index;
-	uint32_t hwinfo;
 
 	// Try to read id
 	flash_nand_read_id(cmdlist, ptrlist);
@@ -3217,11 +3217,8 @@ static void flash_read_id(dmov_s * cmdlist, unsigned *ptrlist)
 		// Use this for getting the next/current blocks
 		num_pages_per_blk = flash_info.block_size / flash_pagesize;
 		num_pages_per_blk_mask = num_pages_per_blk - 1;
-
-		hwinfo = flash_ctrl_hwinfo(cmdlist, ptrlist);
-
 		//Look for 8bit BCH ECC Nand, TODO: ECC Correctability >= 8
-		if (((hwinfo == 0x307) || (hwinfo == 0x4030))
+		if ((flash_ctrl_hwinfo(cmdlist, ptrlist) == 0x307)
 		    && flash_info.id == 0x2600482c) {
 			enable_bch_ecc = 1;
 		}
@@ -3328,10 +3325,6 @@ void flash_init(void)
 	flash_cmdlist = memalign(32, 1024);
 	flash_data = memalign(32, 4096 + 128);
 	flash_spare = memalign(32, 128);
-
-	if (flash_ptrlist == NULL || flash_cmdlist == NULL
-		|| flash_data == NULL || flash_spare == NULL)
-		ASSERT(0);
 
 	flash_read_id(flash_cmdlist, flash_ptrlist);
 	if ((FLASH_8BIT_NAND_DEVICE == flash_info.type)
@@ -3460,21 +3453,16 @@ flash_read_ext(struct ptentry *ptn, unsigned extra_per_page,
 }
 
 int
-flash_write(struct ptentry *ptn, unsigned write_extra_bytes, const void *data,
+flash_write(struct ptentry *ptn, unsigned extra_per_page, const void *data,
 	    unsigned bytes)
 {
 	unsigned page = ptn->start * num_pages_per_blk;
 	unsigned lastpage = (ptn->start + ptn->length) * num_pages_per_blk;
 	unsigned *spare = (unsigned *)flash_spare;
 	const unsigned char *image = data;
-	unsigned wsize;
+	unsigned wsize = flash_pagesize + extra_per_page;
 	unsigned n;
 	int r;
-
-	if(write_extra_bytes)
-		wsize = flash_pagesize + flash_info.spare_size;
-	else
-		wsize = flash_pagesize;
 
 	if ((flash_info.type == FLASH_ONENAND_DEVICE)
 	    && (ptn->type == TYPE_MODEM_PARTITION)) {
@@ -3509,7 +3497,7 @@ flash_write(struct ptentry *ptn, unsigned write_extra_bytes, const void *data,
 			}
 		}
 
-		if (write_extra_bytes) {
+		if (extra_per_page) {
 			r = _flash_write_page(flash_cmdlist, flash_ptrlist,
 					      page, image,
 					      image + flash_pagesize);

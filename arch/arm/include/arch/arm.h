@@ -30,8 +30,6 @@
 extern "C" {
 #endif
 
-extern uint32_t lk_boot_args[4];
-
 void arm_context_switch(vaddr_t *old_sp, vaddr_t new_sp);
 
 static inline uint32_t read_cpsr() {

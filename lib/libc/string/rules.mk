@@ -8,7 +8,6 @@ C_STRING_OPS := \
 	memcpy \
 	memmove \
 	memset \
-        memscpy \
 	strcat \
 	strchr \
 	strcmp \
@@ -26,7 +25,6 @@ C_STRING_OPS := \
 	strnlen \
 	strpbrk \
 	strrchr \
-	strrev \
 	strspn \
 	strstr \
 	strtok \
@@ -41,3 +39,4 @@ include $(LOCAL_DIR)/arch/$(ARCH)/rules.mk
 
 OBJS += \
 	$(addprefix $(LIBC_STRING_C_DIR)/,$(addsuffix .o,$(C_STRING_OPS)))
+

@@ -1,5 +1,5 @@
 /*
- * * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+ * * Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -173,10 +173,10 @@ static int lcd_power_on()
 	/* Enable PMR for LDO L2 */
 	buffer = 0x7F;
 	mask = 0x7F;
-	if ((ret = pm8901_read(&prev_val, 1, PM8901_PMR_REG(LDO_L2)))) {
+	if ((ret = pm8901_read(&prev_val, 1, PM8901_PMR_7))) {
 		return ret;
 	}
-	ret = pm8901_vreg_write(&buffer, mask, PM8901_PMR_REG(LDO_L2), prev_val);
+	ret = pm8901_vreg_write(&buffer, mask, PM8901_PMR_7, prev_val);
 	return ret;
 }
 
@@ -242,7 +242,7 @@ int panel_set_backlight(uint8_t bt_level)
 	int rc = -1;
 	uint32_t duty_us, period_us;
 
-	if ((bt_level < 0) || (bt_level > 15)) {
+	if ((bt_level <= 0) || (bt_level > 15)) {
 		dprintf(CRITICAL, "Error in brightness level (1-15 allowed)\n");
 		goto bail_out;
 	}

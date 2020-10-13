@@ -1,8 +1,6 @@
 /*
  * Copyright (c) 2008 Travis Geiselbrecht
  *
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
- *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
  * (the "Software"), to deal in the Software without restriction,
@@ -39,8 +37,6 @@ _start:
 	b	arm_fiq
 
 reset:
-	adr r7, lk_boot_args
-	stmia r7!, {r0-r3}
 
 #ifdef ENABLE_TRUSTZONE
 	/*Add reference to TZ symbol so linker includes it in final image */
@@ -54,12 +50,8 @@ reset:
 		/* new thumb behavior, low exception vectors, i/d cache disable, mmu disabled */
 	bic		r0, r0, #(1<<15| 1<<13 | 1<<12)
 	bic		r0, r0, #(1<<2 | 1<<0)
-		/* disable alignment faults */
-	bic		r0, r0, #(1<<1)
-	/* Enable CP15 barriers by default */
-#ifdef ARM_CORE_V8
-	orr		r0, r0, #(1<<5)
-#endif
+		/* enable alignment faults */
+	orr		r0, r0, #(1<<1)
         /* Write SCTLR */
 	mcr		p15, 0, r0, c1, c0, 0
 #ifdef ENABLE_TRUSTZONE
@@ -120,12 +112,6 @@ reset:
 warm_boot_tag:
 	.word 0
 #endif
-.global lk_boot_args
-lk_boot_args:
-	.word 0
-	.word 0
-	.word 0
-	.word 0
 
 .Lstack_setup:
 	/* set up the stack for irq, fiq, abort, undefined, system/user, and lastly supervisor mode */
@@ -201,3 +187,14 @@ lk_boot_args:
 abort_stack:
 	.skip 1024
 abort_stack_top:
+
+.rodata:
+.align 2
+
+/* define the heap end as read-only data containing the end defined in the
+ * linker script. other archs that use dynamic memory length discovery can make
+ * this read-write and update it during init.
+ */
+# .global _heap_end
+#_heap_end:
+#	.int _end_of_ram

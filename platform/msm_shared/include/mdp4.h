@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2015 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -47,6 +47,7 @@
 #define MDP_DSI_CMD_MODE_ID_MAP               REG_MDP(0x000A0)
 #define MDP_DSI_CMD_MODE_TRIGGER_EN           REG_MDP(0x000A4)
 #define MDP_OVERLAYPROC0_CFG                  REG_MDP(0x10004)
+#define MDP_OVERLAYPROC0_OUT_SIZE             REG_MDP(0x10008)
 #define MDP_OVERLAYPROC0_OPMODE               REG_MDP(0x10014)
 #define MDP_LAYERMIXER_IN_CFG                 REG_MDP(0x10100)
 #define MDP_OVERLAY_REG_FLUSH                 REG_MDP(0x18000)
@@ -61,6 +62,20 @@
 #define MDP_RGB1_SRC_YSTRIDE1                 REG_MDP(0x40040)
 #define MDP_RGB1_SRC_FORMAT                   REG_MDP(0x40050)
 #define MDP_RGB1_CONSTANT_COLOR               REG_MDP(0x41008)
+
+#define MDP_DMA_P_CONFIG                      REG_MDP(0x90000)
+#define MDP_DMA_P_OUT_XY                      REG_MDP(0x90010)
+#define MDP_DMA_P_SIZE                        REG_MDP(0x90004)
+#define MDP_DMA_P_BUF_ADDR                    REG_MDP(0x90008)
+#define MDP_DMA_P_BUF_Y_STRIDE                REG_MDP(0x9000C)
+#define MDP_DMA_P_OP_MODE                     REG_MDP(0x90070)
+
+#define MDP_DMA_S_CONFIG                      REG_MDP(0xA0000)
+#define MDP_DMA_S_OUT_XY                      REG_MDP(0xA0010)
+#define MDP_DMA_S_SIZE                        REG_MDP(0xA0004)
+#define MDP_DMA_S_BUF_ADDR                    REG_MDP(0xA0008)
+#define MDP_DMA_S_BUF_Y_STRIDE                REG_MDP(0xA000C)
+#define MDP_DMA_S_OP_MODE                     REG_MDP(0xA0028)
 
 #define MDP_DSI_VIDEO_EN                      REG_MDP(0xE0000)
 #define MDP_DSI_VIDEO_HSYNC_CTL               REG_MDP(0xE0004)
@@ -104,17 +119,11 @@ void mdp_shutdown(void);
 void mdp_disable(void);
 void mdp_start_dma(void);
 int mdp_dsi_video_off();
-int mdp_dsi_video_on(struct msm_panel_info *pinfo);
+int mdp_dsi_video_on();
 int mdp_dsi_video_config(struct msm_panel_info *pinfo, struct fbcon_config *fb);
 int mdp_lcdc_config(struct msm_panel_info *pinfo, struct fbcon_config *fb);
 int mdp_lcdc_on();
 int mdp_lcdc_off();
 void mdp_set_revision(int rev);
 int mdp_get_revision();
-
-/* defining no-op functions that are implemented only for mdp5 */
-int mdp_edp_config(struct msm_panel_info *pinfo, struct fbcon_config *fb);
-int mdp_edp_on(struct msm_panel_info *pinfo);
-int mdp_edp_off(void);
-
 #endif

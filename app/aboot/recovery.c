@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,15 +32,11 @@
 #include <string.h>
 #include <kernel/thread.h>
 #include <arch/ops.h>
-#include <arch/defines.h>
-#include <malloc.h>
-#include <stdlib.h>
 
 #include <dev/flash.h>
 #include <lib/ptable.h>
 #include <dev/keys.h>
 #include <platform.h>
-#include <target.h>
 #include <partition_parser.h>
 #include <mmc.h>
 
@@ -50,14 +46,13 @@
 
 #define BOOT_FLAGS	1
 #define UPDATE_STATUS	2
+#define ROUND_TO_PAGE(x,y) (((x) + (y)) & (~(y)))
 
 static const int MISC_PAGES = 3;			// number of pages to save
 static const int MISC_COMMAND_PAGE = 1;		// bootloader command is this page
 static char buf[4096];
-
 unsigned boot_into_recovery = 0;
 
-extern uint32_t get_page_size();
 extern void reset_device_info();
 extern void set_device_root();
 
@@ -97,7 +92,6 @@ int set_recovery_message(const struct recovery_message *in)
 	unsigned offset = 0;
 	unsigned pagesize = flash_page_size();
 	unsigned n = 0;
-	void *scratch_addr = target_get_scratch_address();
 
 	ptable = flash_get_ptable();
 
@@ -114,26 +108,26 @@ int set_recovery_message(const struct recovery_message *in)
 
 	n = pagesize * (MISC_COMMAND_PAGE + 1);
 
-	if (flash_read(ptn, offset, scratch_addr, n)) {
+	if (flash_read(ptn, offset, (void *) SCRATCH_ADDR, n)) {
 		dprintf(CRITICAL, "ERROR: Cannot read recovery_header\n");
 		return -1;
 	}
 
 	offset += (pagesize * MISC_COMMAND_PAGE);
-	offset += (unsigned) scratch_addr;
+	offset += SCRATCH_ADDR;
 	memcpy((void *) offset, in, sizeof(*in));
-	if (flash_write(ptn, 0, scratch_addr, n)) {
+	if (flash_write(ptn, 0, (void *)SCRATCH_ADDR, n)) {
 		dprintf(CRITICAL, "ERROR: flash write fail!\n");
 		return -1;
 	}
 	return 0;
 }
 
-static int set_ssd_radio_update (char *name)
+int read_update_header_for_bootloader(struct update_header *header)
 {
 	struct ptentry *ptn;
 	struct ptable *ptable;
-	unsigned int *ssd_cookie;
+	unsigned offset = 0;
 	unsigned pagesize = flash_page_size();
 
 	ptable = flash_get_ptable();
@@ -141,33 +135,99 @@ static int set_ssd_radio_update (char *name)
 		dprintf(CRITICAL, "ERROR: Partition table not found\n");
 		return -1;
 	}
+	ptn = ptable_find(ptable, "cache");
 
-	ssd_cookie = malloc(pagesize);
-	if (!ssd_cookie){
-		dprintf(CRITICAL, "ERROR: Memory allocation failure\n");
+	if (ptn == NULL) {
+		dprintf(CRITICAL, "ERROR: No cache partition found\n");
 		return -1;
 	}
-	memset(ssd_cookie, 0, pagesize);
-	ssd_cookie[0] = 0x53534443;
-	ssd_cookie[1] = 0x4F4F4B49;
+	if (flash_read(ptn, offset, buf, pagesize)) {
+		dprintf(CRITICAL, "ERROR: Cannot read recovery_header\n");
+		return -1;
+	}
+	memcpy(header, buf, sizeof(*header));
+
+	if (strncmp((char *) header->MAGIC, UPDATE_MAGIC, UPDATE_MAGIC_SIZE))
+	{
+		return -1;
+	}
+	return 0;
+}
+
+int update_firmware_image (struct update_header *header, char *name)
+{
+	struct ptentry *ptn;
+	struct ptable *ptable;
+	unsigned offset = 0;
+	unsigned pagesize = flash_page_size();
+	unsigned pagemask = pagesize -1;
+	unsigned n = 0;
+
+	ptable = flash_get_ptable();
+	if (ptable == NULL) {
+		dprintf(CRITICAL, "ERROR: Partition table not found\n");
+		return -1;
+	}
+
+	ptn = ptable_find(ptable, "cache");
+	if (ptn == NULL) {
+		dprintf(CRITICAL, "ERROR: No cache partition found\n");
+		return -1;
+	}
+
+	offset += header->image_offset;
+	n = (header->image_length + pagemask) & (~pagemask);
+
+	if (flash_read(ptn, offset, (void *) SCRATCH_ADDR, n)) {
+		dprintf(CRITICAL, "ERROR: Cannot read radio image\n");
+		return -1;
+	}
 
 	ptn = ptable_find(ptable, name);
 	if (ptn == NULL) {
 		dprintf(CRITICAL, "ERROR: No %s partition found\n", name);
-		goto out;
+		return -1;
 	}
 
-	if (flash_write(ptn, 0, ssd_cookie, pagesize)) {
+	if (flash_write(ptn, 0, (void *) SCRATCH_ADDR, n)) {
 		dprintf(CRITICAL, "ERROR: flash write fail!\n");
-		goto out;
+		return -1;
 	}
 
-	free(ssd_cookie);
+	dprintf(INFO, "Partition writen successfully!");
+	return 0;
+}
+
+static int set_ssd_radio_update (char *name)
+{
+	struct ptentry *ptn;
+	struct ptable *ptable;
+	unsigned int ssd_cookie[2] = {0x53534443, 0x4F4F4B49};
+	unsigned pagesize = flash_page_size();
+	unsigned pagemask = pagesize -1;
+	unsigned n = 0;
+
+	ptable = flash_get_ptable();
+	if (ptable == NULL) {
+		dprintf(CRITICAL, "ERROR: Partition table not found\n");
+		return -1;
+	}
+
+	n = (sizeof(ssd_cookie) + pagemask) & (~pagemask);
+
+	ptn = ptable_find(ptable, name);
+	if (ptn == NULL) {
+		dprintf(CRITICAL, "ERROR: No %s partition found\n", name);
+		return -1;
+	}
+
+	if (flash_write(ptn, 0, ssd_cookie, n)) {
+		dprintf(CRITICAL, "ERROR: flash write fail!\n");
+		return -1;
+	}
+
 	dprintf(INFO, "FOTA partition written successfully!");
 	return 0;
-out:
-	free(ssd_cookie);
-	return -1;
 }
 
 int get_boot_info_apps (char type, unsigned int *status)
@@ -235,11 +295,10 @@ int recovery_init (void)
 	// get recovery message
 	if (get_recovery_message(&msg))
 		return -1;
-	msg.command[sizeof(msg.command)-1] = '\0'; //Ensure termination
 	if (msg.command[0] != 0 && msg.command[0] != 255) {
-		dprintf(INFO,"Recovery command: %d %s\n",
-			sizeof(msg.command), msg.command);
+		dprintf(INFO, "Recovery command: %.*s\n", sizeof(msg.command), msg.command);
 	}
+	msg.command[sizeof(msg.command)-1] = '\0'; //Ensure termination
 
 	if (!strcmp("boot-recovery",msg.command))
 	{
@@ -285,6 +344,17 @@ int recovery_init (void)
 		return 0; // Boot in normal mode
 	}
 
+#ifdef OLD_FOTA_UPGRADE
+	if (read_update_header_for_bootloader(&header)) {
+		strlcpy(msg.status, "invalid-update", sizeof(msg.status));
+		goto SEND_RECOVERY_MSG;
+	}
+
+	if (update_firmware_image (&header, partition_name)) {
+		strlcpy(msg.status, "failed-update", sizeof(msg.status));
+		goto SEND_RECOVERY_MSG;
+	}
+#else
 	if (set_ssd_radio_update(partition_name)) {
 		/* If writing to FOTA partition fails */
 		strlcpy(msg.command, "", sizeof(msg.command));
@@ -297,6 +367,7 @@ int recovery_init (void)
 		strlcpy(msg.status, "RADIO", sizeof(msg.status));
 		goto SEND_RECOVERY_MSG;
 	}
+#endif
 	strlcpy(msg.status, "OKAY", sizeof(msg.status));
 
 SEND_RECOVERY_MSG:
@@ -310,94 +381,60 @@ static int emmc_set_recovery_msg(struct recovery_message *out)
 {
 	char *ptn_name = "misc";
 	unsigned long long ptn = 0;
-	unsigned blocksize = mmc_get_device_blocksize();
-	unsigned int size = ROUND_TO_PAGE(sizeof(*out), (unsigned)blocksize - 1);
-	unsigned char *data = NULL;
-	int ret = 0;
+	unsigned int size = ROUND_TO_PAGE(sizeof(*out),511);
+	unsigned char data[size];
 	int index = INVALID_PTN;
 
-	data = malloc(size);
-	if(!data)
-	{
-		dprintf(CRITICAL,"memory allocation error \n");
-		ret = -1;
-		goto out;
-	}
-
-	index = partition_get_index((const char *) ptn_name);
+	index = partition_get_index((unsigned char *) ptn_name);
 	ptn = partition_get_offset(index);
-	mmc_set_lun(partition_get_lun(index));
 	if(ptn == 0) {
 		dprintf(CRITICAL,"partition %s doesn't exist\n",ptn_name);
-		ret = -1;
-		goto out;
+		return -1;
 	}
-	memset(data, 0, size);
 	memcpy(data, out, sizeof(*out));
 	if (mmc_write(ptn , size, (unsigned int*)data)) {
 		dprintf(CRITICAL,"mmc write failure %s %d\n",ptn_name, sizeof(*out));
-		ret = -1;
-		goto out;
+		return -1;
 	}
-out:
-	if (data)
-		free(data);
-	return ret;
+	return 0;
 }
 
 static int emmc_get_recovery_msg(struct recovery_message *in)
 {
 	char *ptn_name = "misc";
 	unsigned long long ptn = 0;
-	unsigned int size;
+	unsigned int size = ROUND_TO_PAGE(sizeof(*in),511);
+	unsigned char data[size];
 	int index = INVALID_PTN;
 
-	size = mmc_get_device_blocksize();
 	index = partition_get_index((unsigned char *) ptn_name);
 	ptn = partition_get_offset(index);
-	mmc_set_lun(partition_get_lun(index));
 	if(ptn == 0) {
 		dprintf(CRITICAL,"partition %s doesn't exist\n",ptn_name);
 		return -1;
 	}
-	if (mmc_read(ptn , (unsigned int*)in, size)) {
+	if (mmc_read(ptn , (unsigned int*)data, size)) {
 		dprintf(CRITICAL,"mmc read failure %s %d\n",ptn_name, size);
 		return -1;
 	}
-
+	memcpy(in, data, sizeof(*in));
 	return 0;
 }
 
 int _emmc_recovery_init(void)
 {
 	int update_status = 0;
-	struct recovery_message *msg;
-	uint32_t block_size = 0;
-
-	block_size = mmc_get_device_blocksize();
+	struct recovery_message msg;
 
 	// get recovery message
-	msg = (struct recovery_message *)memalign(CACHE_LINE, block_size);
-	ASSERT(msg);
-
-	if(emmc_get_recovery_msg(msg))
-	{
-		if(msg)
-			free(msg);
+	if(emmc_get_recovery_msg(&msg))
 		return -1;
+	if (msg.command[0] != 0 && msg.command[0] != 255) {
+		dprintf(INFO,"Recovery command: %d %s\n", sizeof(msg.command), msg.command);
 	}
+	msg.command[sizeof(msg.command)-1] = '\0'; //Ensure termination
 
-	msg->command[sizeof(msg->command)-1] = '\0'; //Ensure termination
-	if (msg->command[0] != 0 && msg->command[0] != 255) {
-		dprintf(INFO,"Recovery command: %d %s\n",
-			sizeof(msg->command), msg->command);
-	}
-
-	if (!strcmp(msg->command, "boot-recovery")) {
-		boot_into_recovery = 1;
-	}
-
-	if (!strcmp("update-radio",msg->command))
+	if (!strcmp("update-radio",msg.command))
 	{
 		/* We're now here due to radio update, so check for update status */
 		int ret = get_boot_info_apps(UPDATE_STATUS, (unsigned int *) &update_status);
@@ -405,226 +442,27 @@ int _emmc_recovery_init(void)
 		if(!ret && (update_status & 0x01))
 		{
 			dprintf(INFO,"radio update success\n");
-			strlcpy(msg->status, "OKAY", sizeof(msg->status));
+			strlcpy(msg.status, "OKAY", sizeof(msg.status));
 		}
 		else
 		{
 			dprintf(INFO,"radio update failed\n");
-			strlcpy(msg->status, "failed-update", sizeof(msg->status));
+			strlcpy(msg.status, "failed-update", sizeof(msg.status));
 		}
 		boot_into_recovery = 1;		// Boot in recovery mode
 	}
-	if (!strcmp("reset-device-info",msg->command))
+	if (!strcmp("reset-device-info",msg.command))
 	{
 		reset_device_info();
 	}
-	if (!strcmp("root-detect",msg->command))
+	if (!strcmp("root-detect",msg.command))
 	{
 		set_device_root();
 	}
 	else
-		goto out;// do nothing
+		return 0;	// do nothing
 
-	strlcpy(msg->command, "", sizeof(msg->command));	// clearing recovery command
-	emmc_set_recovery_msg(msg);	// send recovery message
-
-out:
-	if(msg)
-		free(msg);
+	strlcpy(msg.command, "", sizeof(msg.command));	// clearing recovery command
+	emmc_set_recovery_msg(&msg);	// send recovery message
 	return 0;
 }
-
-static int read_misc(unsigned page_offset, void *buf, unsigned size)
-{
-	const char *ptn_name = "misc";
-	uint32_t pagesize = get_page_size();
-	unsigned offset;
-
-	if (size == 0 || buf == NULL)
-		return -1;
-
-	offset = page_offset * pagesize;
-
-	if (target_is_emmc_boot())
-	{
-		int index;
-		unsigned long long ptn;
-		unsigned long long ptn_size;
-
-		index = partition_get_index(ptn_name);
-		if (index == INVALID_PTN)
-		{
-			dprintf(CRITICAL, "No '%s' partition found\n", ptn_name);
-			return -1;
-		}
-
-		ptn = partition_get_offset(index);
-		ptn_size = partition_get_size(index);
-
-		mmc_set_lun(partition_get_lun(index));
-
-		if (ptn_size < offset + size)
-		{
-			dprintf(CRITICAL, "Read request out of '%s' boundaries\n",
-					ptn_name);
-			return -1;
-		}
-
-		if (mmc_read(ptn + offset, (unsigned int *)buf, size))
-		{
-			dprintf(CRITICAL, "Reading MMC failed\n");
-			return -1;
-		}
-	}
-	else
-	{
-		dprintf(CRITICAL, "Misc partition not supported for NAND targets.\n");
-		return -1;
-	}
-
-	return 0;
-}
-
-int write_misc(unsigned page_offset, void *buf, unsigned size)
-{
-	const char *ptn_name = "misc";
-	void *scratch_addr = target_get_scratch_address();
-	unsigned offset;
-	unsigned aligned_size;
-
-	if (size == 0 || buf == NULL || scratch_addr == NULL)
-		return -1;
-
-	if (target_is_emmc_boot())
-	{
-		int index;
-		unsigned long long ptn;
-		unsigned long long ptn_size;
-
-		index = partition_get_index(ptn_name);
-		if (index == INVALID_PTN)
-		{
-			dprintf(CRITICAL, "No '%s' partition found\n", ptn_name);
-			return -1;
-		}
-
-		ptn = partition_get_offset(index);
-		ptn_size = partition_get_size(index);
-
-		offset = page_offset * BLOCK_SIZE;
-		aligned_size = ROUND_TO_PAGE(size, (unsigned)BLOCK_SIZE - 1);
-		if (ptn_size < offset + aligned_size)
-		{
-			dprintf(CRITICAL, "Write request out of '%s' boundaries\n",
-					ptn_name);
-			return -1;
-		}
-
-		/* This will ensure, we zeored out any extra bytes
-		   we will push to emmc, to prevent information leak */
-		if (aligned_size > size)
-			memset((scratch_addr + size), 0, (aligned_size-size));
-
-		if (scratch_addr != buf)
-			memcpy(scratch_addr, buf, size);
-		if (mmc_write(ptn + offset, aligned_size, (unsigned int *)scratch_addr))
-		{
-			dprintf(CRITICAL, "Writing MMC failed\n");
-			return -1;
-		}
-	}
-	else
-	{
-		struct ptentry *ptn;
-		struct ptable *ptable;
-		unsigned pagesize = flash_page_size();
-
-		ptable = flash_get_ptable();
-		if (ptable == NULL)
-		{
-			dprintf(CRITICAL, "Partition table not found\n");
-			return -1;
-		}
-
-		ptn = ptable_find(ptable, ptn_name);
-		if (ptn == NULL)
-		{
-			dprintf(CRITICAL, "No '%s' partition found\n", ptn_name);
-			return -1;
-		}
-
-		offset = page_offset * pagesize;
-		aligned_size = ROUND_TO_PAGE(size, pagesize - 1);
-		if (ptn->length < offset + aligned_size)
-		{
-			dprintf(CRITICAL, "Write request out of '%s' boundaries\n",
-					ptn_name);
-			return -1;
-		}
-
-		/* This will ensure, we zeored out any extra bytes
-		   we will push, to prevent information leak */
-		if (aligned_size > size)
-			memset((scratch_addr + size), 0, (aligned_size-size));
-
-		if (scratch_addr != buf)
-			memcpy(scratch_addr, buf, size);
-
-		if (flash_write(ptn, offset, scratch_addr, aligned_size)) {
-			dprintf(CRITICAL, "Writing flash failed\n");
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-int get_ffbm(char *ffbm, unsigned size)
-{
-	const char *ffbm_cmd = "ffbm-";
-	uint32_t page_size = get_page_size();
-	char *ffbm_page_buffer = NULL;
-	int retval = 0;
-	if (size < FFBM_MODE_BUF_SIZE || size >= page_size)
-	{
-		dprintf(CRITICAL, "Invalid size argument passed to get_ffbm\n");
-		retval = -1;
-		goto cleanup;
-	}
-	ffbm_page_buffer = (char*)malloc(page_size);
-	if (!ffbm_page_buffer)
-	{
-		dprintf(CRITICAL, "Failed to alloc buffer for ffbm cookie\n");
-		retval = -1;
-		goto cleanup;
-	}
-	if (read_misc(0, ffbm_page_buffer, page_size))
-	{
-		dprintf(CRITICAL, "Error reading MISC partition\n");
-		retval = -1;
-		goto cleanup;
-	}
-	ffbm_page_buffer[size] = '\0';
-	if (strncmp(ffbm_cmd, ffbm_page_buffer, strlen(ffbm_cmd)))
-	{
-		retval = 0;
-		goto cleanup;
-	}
-	else
-	{
-		if (strlcpy(ffbm, ffbm_page_buffer, size) <
-				FFBM_MODE_BUF_SIZE -1)
-		{
-			dprintf(CRITICAL, "Invalid string in misc partition\n");
-			retval = -1;
-		}
-		else
-			retval = 1;
-	}
-cleanup:
-	if(ffbm_page_buffer)
-		free(ffbm_page_buffer);
-	return retval;
-}
-
-

@@ -33,8 +33,6 @@ extern "C" {
 void *memchr (void const *, int, size_t) __PURE;
 int   memcmp (void const *, const void *, size_t) __PURE;
 void *memcpy (void *, void const *, size_t);
-/* secure memcpy, does not copy beyong size of dest buffer*/
-size_t memscpy (void *, size_t, void const *, size_t);
 void *memmove(void *, void const *, size_t);
 void *memset (void *, int, size_t);
 
@@ -57,7 +55,6 @@ char       *strtok_r(char *s, const char *delim, char **last);
 int         strcoll(const char *s1, const char *s2) __PURE;
 size_t      strxfrm(char *dest, const char *src, size_t n) __PURE;
 char       *strdup(const char *str) __MALLOC;
-void        strrev(unsigned char *str);
 
 #ifdef __cplusplus
 } /* extern "C" */
@@ -76,7 +73,6 @@ size_t strlcpy(char *, char const *, size_t);
 int    strncasecmp(char const *, char const *, size_t)  __PURE;
 int    strnicmp(char const *, char const *, size_t) __PURE;
 size_t strnlen(char const *s, size_t count) __PURE;
-char  *strstrl(char const *, char const *, size_t) __PURE;
 
 #ifdef __cplusplus
 }

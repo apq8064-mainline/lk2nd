@@ -24,11 +24,10 @@
 #define STATUS_OKAY  1
 #define STATUS_FAIL  2
 #define STATUS_PRINT 3
-#define JTAG_CMD_NUM  256
 
 volatile unsigned _jtag_cmd = 0;
 volatile unsigned _jtag_msg = 0;
-unsigned char _jtag_cmd_buffer[JTAG_CMD_NUM];
+unsigned char _jtag_cmd_buffer[128];
 unsigned char _jtag_msg_buffer[128];
 
 volatile unsigned _jtag_arg0 = 0;
@@ -75,7 +74,7 @@ void jtag_cmd_loop(void (*do_cmd) (const char *, unsigned, unsigned, unsigned))
 		if (jtag_cmd_pending()) {
 			do_cmd((const char *)_jtag_cmd_buffer, _jtag_arg0,
 			       _jtag_arg1, _jtag_arg2);
-			for (n = 0; n < JTAG_CMD_NUM; n++)
+			for (n = 0; n < 256; n++)
 				_jtag_cmd_buffer[n] = 0;
 			_jtag_arg0 = 0;
 			_jtag_arg1 = 0;

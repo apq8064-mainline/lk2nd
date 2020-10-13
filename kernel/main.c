@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2008 Travis Geiselbrecht
  *
- * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009, The Linux Foundation. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -33,7 +33,6 @@
 #include <kernel/thread.h>
 #include <kernel/timer.h>
 #include <kernel/dpc.h>
-#include <boot_stats.h>
 
 extern void *__ctor_list;
 extern void *__ctor_end;
@@ -49,7 +48,7 @@ void bootstrap_nandwrite(void);
 static void call_constructors(void)
 {
 	void **ctor;
-
+   
 	ctor = &__ctor_list;
 	while(ctor != &__ctor_end) {
 		void (*func)(void);
@@ -78,8 +77,7 @@ void kmain(void)
 	target_early_init();
 
 	dprintf(INFO, "welcome to lk\n\n");
-	bs_set_timestamp(BS_BL_START);
-
+	
 	// deal with any static constructors
 	dprintf(SPEW, "calling constructors\n");
 	call_constructors();
@@ -87,8 +85,6 @@ void kmain(void)
 	// bring up the kernel heap
 	dprintf(SPEW, "initializing heap\n");
 	heap_init();
-
-	__stack_chk_guard_setup();
 
 	// initialize the threading system
 	dprintf(SPEW, "initializing threads\n");
@@ -136,7 +132,7 @@ static int bootstrap2(void *arg)
 	// initialize the rest of the platform
 	dprintf(SPEW, "initializing platform\n");
 	platform_init();
-
+	
 	// initialize the target
 	dprintf(SPEW, "initializing target\n");
 	target_init();

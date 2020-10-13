@@ -1,5 +1,5 @@
 /*
- * * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+ * * Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -287,24 +287,6 @@ int pm8901_reset_pwr_off(int reset)
 	}
 
  get_out:
-	return rc;
-}
-
-int pm8901_ldo_disable(int ldo_id)
-{
-	int rc = -1;
-	uint8_t prev_val = 0x0, val = 0x3F, mask = 0x7F;
-
-	if(ldo_id >= LDO_START && ldo_id <= LDO_END) {
-		rc = pm8901_read(&prev_val, 1, PM8901_PMR_REG(ldo_id));
-		if (rc)
-			goto get_out;
-
-		rc = pm8901_vreg_write(&val, mask, PM8901_PMR_REG(ldo_id), prev_val);
-		if (rc)
-			goto get_out;
-	}
-get_out:
 	return rc;
 }
 

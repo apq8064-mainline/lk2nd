@@ -75,6 +75,7 @@
 #define DIV_16		15
 
 #define WAIT_CNT	100
+#define VDD_LEVEL	7
 #define MIN_AXI_HZ	120000000
 #define ACPU_800MHZ	41
 
@@ -150,12 +151,8 @@ enum {
 static uint8_t sdc_clk[] = { 0, SDC1_CLK, SDC2_CLK, SDC3_CLK, SDC4_CLK };
 static uint8_t sdc_pclk[] = { 0, SDC1_PCLK, SDC2_PCLK, SDC3_PCLK, SDC4_PCLK };
 
-/* VDD_PLEVEL */
-unsigned vdd_plevel = 0;
-
 void mdelay(unsigned msecs);
 unsigned board_msm_id(void);
-unsigned board_msm_version(void);
 
 void pll_enable(void *pll_mode_addr)
 {
@@ -213,16 +210,11 @@ void acpu_clock_init(void)
 	uint32_t i, clk;
 	uint32_t val;
 	uint32_t *clk_cntl_reg_val, size;
-	unsigned msm_id, msm_version;
+	unsigned msm_id;
 
-	msm_version = board_msm_version();
-	if (msm_version == 2)
-		vdd_plevel = 4;
-	else
-		vdd_plevel = 6;
+	/* Increase VDD level to the final value. */
+	writel((1 << 7) | (VDD_LEVEL << 3), VDD_SVS_PLEVEL_ADDR);
 
-	/* Set VDD plevel */
-	writel((1 << 7) | (vdd_plevel << 3), VDD_SVS_PLEVEL_ADDR);
 #if (!ENABLE_NANDWRITE)
 	thread_sleep(1);
 #else

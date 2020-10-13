@@ -1,17 +1,17 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *     * Neither the name of The Linux Foundation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of The Linux Foundation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
@@ -34,7 +34,6 @@
 #include <partition_parser.h>
 #include <platform/iomap.h>
 #include <platform/timer.h>
-#include <bits.h>
 
 #if MMC_BOOT_ADM
 #include "adm.h"
@@ -85,7 +84,7 @@ static int mmc_bam_transfer_data();
 static unsigned int
 mmc_boot_bam_setup_desc(unsigned int *data_ptr,
 			    unsigned int data_len, unsigned char direction);
-uint32_t mmc_page_size();
+
 
 #endif
 
@@ -140,14 +139,14 @@ int mmc_clock_enable_disable(unsigned id, unsigned enable);
 int mmc_clock_get_rate(unsigned id);
 int mmc_clock_set_rate(unsigned id, unsigned rate);
 
-struct mmc_host mmc_host;
-struct mmc_card mmc_card;
+struct mmc_boot_host mmc_host;
+struct mmc_boot_card mmc_card;
 
 static unsigned int mmc_wp(unsigned int addr, unsigned int size,
 			   unsigned char set_clear_wp);
-static unsigned int mmc_boot_send_ext_cmd(struct mmc_card *card,
+static unsigned int mmc_boot_send_ext_cmd(struct mmc_boot_card *card,
 					  unsigned char *buf);
-static unsigned int mmc_boot_read_reg(struct mmc_card *card,
+static unsigned int mmc_boot_read_reg(struct mmc_boot_card *card,
 				      unsigned int data_len,
 				      unsigned int command,
 				      unsigned int addr, unsigned int *out);
@@ -157,11 +156,6 @@ unsigned int SWAP_ENDIAN(unsigned int val)
 	return ((val & 0xFF) << 24) |
 	    (((val >> 8) & 0xFF) << 16) | (((val >> 16) & 0xFF) << 8) | (val >>
 									 24);
-}
-
-uint32_t mmc_page_size()
-{
-	return BOARD_KERNEL_PAGESIZE;
 }
 
 void mmc_mclk_reg_wr_delay()
@@ -178,8 +172,8 @@ void mmc_mclk_reg_wr_delay()
 /* Sets a timeout for read operation.
  */
 static unsigned int
-mmc_boot_set_read_timeout(struct mmc_host *host,
-			  struct mmc_card *card)
+mmc_boot_set_read_timeout(struct mmc_boot_host *host,
+			  struct mmc_boot_card *card)
 {
 	unsigned int timeout_ns = 0;
 
@@ -208,8 +202,8 @@ mmc_boot_set_read_timeout(struct mmc_host *host,
 /* Sets a timeout for write operation.
  */
 static unsigned int
-mmc_boot_set_write_timeout(struct mmc_host *host,
-			   struct mmc_card *card)
+mmc_boot_set_write_timeout(struct mmc_boot_host *host,
+			   struct mmc_boot_card *card)
 {
 	unsigned int timeout_ns = 0;
 
@@ -241,14 +235,14 @@ mmc_boot_set_write_timeout(struct mmc_host *host,
  * few of the CSD elements in csd structure. We'll only decode those values.
  */
 static unsigned int
-mmc_boot_decode_and_save_csd(struct mmc_card *card, unsigned int *raw_csd)
+mmc_boot_decode_and_save_csd(struct mmc_boot_card *card, unsigned int *raw_csd)
 {
 	unsigned int mmc_sizeof = 0;
 	unsigned int mmc_unit = 0;
 	unsigned int mmc_value = 0;
 	unsigned int mmc_temp = 0;
 
-	struct mmc_csd mmc_csd;
+	struct mmc_boot_csd mmc_csd;
 
 	if ((card == NULL) || (raw_csd == NULL)) {
 		return MMC_BOOT_E_INVAL;
@@ -433,8 +427,8 @@ mmc_boot_decode_and_save_csd(struct mmc_card *card, unsigned int *raw_csd)
 	}
 
 	/* save the information in card structure */
-	memcpy((struct mmc_csd *)&card->csd,
-	       (struct mmc_csd *)&mmc_csd, sizeof(struct mmc_csd));
+	memcpy((struct mmc_boot_csd *)&card->csd,
+	       (struct mmc_boot_csd *)&mmc_csd, sizeof(struct mmc_boot_csd));
 
 	dprintf(SPEW, "Decoded CSD fields:\n");
 	dprintf(SPEW, "cmmc_structure: %d\n", mmc_csd.cmmc_structure);
@@ -462,9 +456,9 @@ mmc_boot_decode_and_save_csd(struct mmc_card *card, unsigned int *raw_csd)
  * Decode CID sent by the card.
  */
 static unsigned int
-mmc_boot_decode_and_save_cid(struct mmc_card *card, unsigned int *raw_cid)
+mmc_boot_decode_and_save_cid(struct mmc_boot_card *card, unsigned int *raw_cid)
 {
-	struct mmc_cid mmc_cid;
+	struct mmc_boot_cid mmc_cid;
 	unsigned int mmc_sizeof = 0;
 	int i = 0;
 
@@ -517,8 +511,8 @@ mmc_boot_decode_and_save_cid(struct mmc_card *card, unsigned int *raw_cid)
 	}
 
 	/* save it in card database */
-	memcpy((struct mmc_cid *)&card->cid,
-	       (struct mmc_cid *)&mmc_cid, sizeof(struct mmc_cid));
+	memcpy((struct mmc_boot_cid *)&card->cid,
+	       (struct mmc_boot_cid *)&mmc_cid, sizeof(struct mmc_boot_cid));
 
 	dprintf(SPEW, "Decoded CID fields:\n");
 	dprintf(SPEW, "Manufacturer ID: %x\n", mmc_cid.mid);
@@ -557,10 +551,8 @@ static unsigned int mmc_boot_send_command(struct mmc_boot_command *cmd)
 	/* 2a. Write command index in CMD_INDEX field */
 	cmd_index = cmd->cmd_index;
 	mmc_cmd |= cmd->cmd_index;
-	/* 2b. Set RESPONSE bit to 1 for all cmds except CMD0
-	 * And dont set RESPONSE bit for commands with no response
-	 */
-	if (cmd_index != CMD0_GO_IDLE_STATE && cmd->resp_type != MMC_BOOT_RESP_NONE) {
+	/* 2b. Set RESPONSE bit to 1 for all cmds except CMD0 */
+	if (cmd_index != CMD0_GO_IDLE_STATE) {
 		mmc_cmd |= MMC_BOOT_MCI_CMD_RESPONSE;
 	}
 
@@ -712,7 +704,7 @@ static unsigned int mmc_boot_reset_cards(void)
  * Send CMD1 to know whether the card supports host VDD profile or not.
  */
 static unsigned int
-mmc_boot_send_op_cond(struct mmc_host *host, struct mmc_card *card)
+mmc_boot_send_op_cond(struct mmc_boot_host *host, struct mmc_boot_card *card)
 {
 	struct mmc_boot_command cmd;
 	unsigned int mmc_resp = 0;
@@ -768,7 +760,7 @@ mmc_boot_send_op_cond(struct mmc_host *host, struct mmc_card *card)
 /*
  * Request any card to send its uniquie card identification (CID) number (CMD2).
  */
-static unsigned int mmc_boot_all_send_cid(struct mmc_card *card)
+static unsigned int mmc_boot_all_send_cid(struct mmc_boot_card *card)
 {
 	struct mmc_boot_command cmd;
 	unsigned int mmc_ret = MMC_BOOT_E_SUCCESS;
@@ -807,7 +799,7 @@ static unsigned int mmc_boot_all_send_cid(struct mmc_card *card)
  * Ask any card to send it's relative card address (RCA).This RCA number is
  * shorter than CID and is used by the host to address the card in future (CMD3)
  */
-static unsigned int mmc_boot_send_relative_address(struct mmc_card *card)
+static unsigned int mmc_boot_send_relative_address(struct mmc_boot_card *card)
 {
 	struct mmc_boot_command cmd;
 	unsigned int mmc_ret = MMC_BOOT_E_SUCCESS;
@@ -858,7 +850,7 @@ static unsigned int mmc_boot_send_relative_address(struct mmc_card *card)
  * Requests card to send it's CSD register's contents. (CMD9)
  */
 static unsigned int
-mmc_boot_send_csd(struct mmc_card *card, unsigned int *raw_csd)
+mmc_boot_send_csd(struct mmc_boot_card *card, unsigned int *raw_csd)
 {
 	struct mmc_boot_command cmd;
 	unsigned int mmc_arg = 0;
@@ -901,7 +893,7 @@ mmc_boot_send_csd(struct mmc_card *card, unsigned int *raw_csd)
  * the card will be de-selected. (CMD7)
  */
 static unsigned int
-mmc_boot_select_card(struct mmc_card *card, unsigned int rca)
+mmc_boot_select_card(struct mmc_boot_card *card, unsigned int rca)
 {
 	struct mmc_boot_command cmd;
 	unsigned int mmc_arg = 0;
@@ -951,7 +943,7 @@ mmc_boot_select_card(struct mmc_card *card, unsigned int rca)
  * Send command to set block length.
  */
 static unsigned int
-mmc_boot_set_block_len(struct mmc_card *card, unsigned int block_len)
+mmc_boot_set_block_len(struct mmc_boot_card *card, unsigned int block_len)
 {
 	struct mmc_boot_command cmd;
 	unsigned int mmc_ret = MMC_BOOT_E_SUCCESS;
@@ -991,7 +983,7 @@ mmc_boot_set_block_len(struct mmc_card *card, unsigned int block_len)
  * Requests the card to stop transmission of data.
  */
 static unsigned int
-mmc_boot_send_stop_transmission(struct mmc_card *card,
+mmc_boot_send_stop_transmission(struct mmc_boot_card *card,
 				unsigned int prg_enabled)
 {
 	struct mmc_boot_command cmd;
@@ -1028,7 +1020,7 @@ mmc_boot_send_stop_transmission(struct mmc_card *card,
  * Get the card's current status
  */
 static unsigned int
-mmc_boot_get_card_status(struct mmc_card *card,
+mmc_boot_get_card_status(struct mmc_boot_card *card,
 			 unsigned int prg_enabled, unsigned int *status)
 {
 	struct mmc_boot_command cmd;
@@ -1106,7 +1098,7 @@ static unsigned int mmc_boot_status_error(unsigned mmc_status)
  * Send ext csd command.
  */
 static unsigned int
-mmc_boot_send_ext_cmd(struct mmc_card *card, unsigned char *buf)
+mmc_boot_send_ext_cmd(struct mmc_boot_card *card, unsigned char *buf)
 {
 	struct mmc_boot_command cmd;
 	unsigned int mmc_ret = MMC_BOOT_E_SUCCESS;
@@ -1196,7 +1188,7 @@ mmc_boot_send_ext_cmd(struct mmc_card *card, unsigned char *buf)
  * Switch command
  */
 static unsigned int
-mmc_boot_switch_cmd(struct mmc_card *card,
+mmc_boot_switch_cmd(struct mmc_boot_card *card,
 		    unsigned access, unsigned index, unsigned value)
 {
 
@@ -1272,7 +1264,7 @@ mmc_boot_switch_cmd(struct mmc_card *card,
  * A command to set the data bus width for card. Set width to either
  */
 static unsigned int
-mmc_boot_set_bus_width(struct mmc_card *card, unsigned int width)
+mmc_boot_set_bus_width(struct mmc_boot_card *card, unsigned int width)
 {
 	unsigned int mmc_ret = MMC_BOOT_E_SUCCESS;
 	unsigned int mmc_reg = 0;
@@ -1300,110 +1292,11 @@ mmc_boot_set_bus_width(struct mmc_card *card, unsigned int width)
 	} else if (width == MMC_BOOT_BUS_WIDTH_8_BIT) {
 		mmc_reg |= MMC_BOOT_MCI_CLK_WIDEBUS_8_BIT;
 	}
-
 	writel(mmc_reg, MMC_BOOT_MCI_CLK);
 
 	/* Wait for the MMC_BOOT_MCI_CLK write to go through. */
 	mmc_mclk_reg_wr_delay();
 
-	return MMC_BOOT_E_SUCCESS;
-}
-
-/*
- * Function to enable HS200 mode
- * 1. Set the clock frequency to 100 MHZ
- * 2. Set the bus width to 4/8 bit SDR as supported byt the target & host
- * 3. Set the HS_TIMING on ext_csd 185 for the card
- */
-static uint32_t mmc_set_hs200_mode(struct mmc_host *host,
-								   struct mmc_card *card)
-{
-	uint32_t mmc_ret = MMC_BOOT_E_SUCCESS;
-
-	/* Set Clock @ 100 MHZ */
-	clock_config_mmc(mmc_slot, host->caps.hs_clk_rate);
-	host->mclk_rate = host->caps.hs_clk_rate;
-
-	/* Set 4/8 bit SDR bus width */
-	mmc_ret = mmc_boot_set_bus_width(card, host->caps.bus_width);
-	if (mmc_ret != MMC_BOOT_E_SUCCESS) {
-		dprintf(CRITICAL,
-			"Error No.%d: Failure to set wide bus for Card(RCA:%x)\n",
-			mmc_ret, card->rca);
-			return mmc_ret;
-	}
-
-	/* Setting HS200 in HS_TIMING using EXT_CSD (CMD6) */
-	mmc_ret = mmc_boot_switch_cmd(card, MMC_BOOT_ACCESS_WRITE,
-				      MMC_BOOT_EXT_CMMC_HS_TIMING, 2);
-
-	if (mmc_ret != MMC_BOOT_E_SUCCESS) {
-		dprintf(CRITICAL, "Switch cmd returned failure %d\n", __LINE__);
-		return mmc_ret;
-	}
-
-	return mmc_ret;
-}
-
-/*
- * Function to enable DDR mode
- * 1. Set the bus width to 8 bit DDR
- * 1. Set the clock frequency to 100 MHZ
- * 3. Set DDR mode in mci clk register
- * 4. Set Widebus enable in mci clock register
- */
-static uint32_t mmc_set_ddr_mode(struct mmc_host *host,
-								 struct mmc_card *card)
-{
-	uint8_t mmc_ret = MMC_BOOT_E_SUCCESS;
-	uint32_t mmc_reg = 0;
-	uint32_t width = 0;
-
-	switch (host->caps.bus_width) {
-		case MMC_BOOT_BUS_WIDTH_4_BIT:
-			width = MMC_DDR_BUS_WIDTH_4_BIT;
-			break;
-		case MMC_BOOT_BUS_WIDTH_8_BIT:
-			width = MMC_DDR_BUS_WIDTH_8_BIT;
-			break;
-		default:
-			dprintf(CRITICAL, "Invalid bus width, DDR mode is not enabled\n");
-			mmc_ret = MMC_BOOT_E_FAILURE;
-			goto end;
-	};
-
-	/* Set width for 4/8 bit DDR bus width */
-	mmc_ret = mmc_boot_set_bus_width(card, width);
-
-	if (mmc_ret != MMC_BOOT_E_SUCCESS) {
-		dprintf(CRITICAL,
-			"Error No.%d: Failure to set wide bus for Card(RCA:%x)\n",
-			mmc_ret, card->rca);
-		return mmc_ret;
-	}
-
-	/* Bump up the clock frequency */
-	clock_config_mmc(mmc_slot, host->caps.hs_clk_rate);
-	host->mclk_rate = host->caps.hs_clk_rate;
-
-	/* Select DDR mode in mci register */
-	mmc_reg = readl(MMC_BOOT_MCI_CLK);
-	mmc_reg |= (MMC_MCI_DDR_MODE_EN << MMC_MCI_MODE_SELECT);
-
-	writel(mmc_reg, MMC_BOOT_MCI_CLK);
-
-	/* Wait for the MMC_BOOT_MCI_CLK write to go through. */
-	mmc_mclk_reg_wr_delay();
-
-	/* Enable wide bus for DDR */
-	mmc_reg = readl(MMC_BOOT_MCI_CLK);
-	mmc_reg |= MMC_BOOT_MCI_CLK_WIDEBUS_MODE;
-	writel(mmc_reg, MMC_BOOT_MCI_CLK);
-
-	/* Wait for the MMC_BOOT_MCI_CLK write to go through. */
-	mmc_mclk_reg_wr_delay();
-
-end:
 	return MMC_BOOT_E_SUCCESS;
 }
 
@@ -1414,7 +1307,7 @@ end:
  * CMD12 - STOP_TRANSMISSION.
  */
 static unsigned int
-mmc_boot_send_read_command(struct mmc_card *card,
+mmc_boot_send_read_command(struct mmc_boot_card *card,
 			   unsigned int xfer_type, unsigned int data_addr)
 {
 	struct mmc_boot_command cmd;
@@ -1467,7 +1360,7 @@ mmc_boot_send_read_command(struct mmc_card *card,
  * CMD12 - STOP_TRANSMISSION.
  */
 static unsigned int
-mmc_boot_send_write_command(struct mmc_card *card,
+mmc_boot_send_write_command(struct mmc_boot_card *card,
 			    unsigned int xfer_type, unsigned int data_addr)
 {
 	struct mmc_boot_command cmd;
@@ -1517,9 +1410,9 @@ mmc_boot_send_write_command(struct mmc_card *card,
  * Write data_len data to address specified by data_addr. data_len is
  * multiple of blocks for block data transfer.
  */
-static unsigned int
-mmc_boot_write_to_card(struct mmc_host *host,
-		       struct mmc_card *card,
+unsigned int
+mmc_boot_write_to_card(struct mmc_boot_host *host,
+		       struct mmc_boot_card *card,
 		       unsigned long long data_addr,
 		       unsigned int data_len, unsigned int *in)
 {
@@ -1680,8 +1573,8 @@ mmc_boot_write_to_card(struct mmc_host *host,
  * Adjust the interface speed to optimal speed
  */
 static unsigned int
-mmc_boot_adjust_interface_speed(struct mmc_host *host,
-				struct mmc_card *card)
+mmc_boot_adjust_interface_speed(struct mmc_boot_host *host,
+				struct mmc_boot_card *card)
 {
 	unsigned int mmc_ret = MMC_BOOT_E_SUCCESS;
 
@@ -1702,7 +1595,7 @@ mmc_boot_adjust_interface_speed(struct mmc_host *host,
 }
 
 static unsigned int
-mmc_boot_set_block_count(struct mmc_card *card, unsigned int block_count)
+mmc_boot_set_block_count(struct mmc_boot_card *card, unsigned int block_count)
 {
 	struct mmc_boot_command cmd;
 	unsigned int mmc_ret = MMC_BOOT_E_SUCCESS;
@@ -1741,9 +1634,9 @@ mmc_boot_set_block_count(struct mmc_card *card, unsigned int block_count)
  * Reads a data of data_len from the address specified. data_len
  * should be multiple of block size for block data transfer.
  */
-static unsigned int
-mmc_boot_read_from_card(struct mmc_host *host,
-			struct mmc_card *card,
+unsigned int
+mmc_boot_read_from_card(struct mmc_boot_host *host,
+			struct mmc_boot_card *card,
 			unsigned long long data_addr,
 			unsigned int data_len, unsigned int *out)
 {
@@ -1897,25 +1790,13 @@ mmc_boot_read_from_card(struct mmc_host *host,
 /*
  * Initialize host structure, set and enable clock-rate and power mode.
  */
-unsigned int mmc_boot_init(struct mmc_host *host)
+unsigned int mmc_boot_init(struct mmc_boot_host *host)
 {
 	unsigned int mmc_ret = MMC_BOOT_E_SUCCESS;
 	unsigned int mmc_pwr = 0;
 
 	host->ocr = MMC_BOOT_OCR_27_36 | MMC_BOOT_OCR_SEC_MODE;
 	host->cmd_retry = MMC_BOOT_MAX_COMMAND_RETRY;
-
-	/* Disable sdhc mode */
-	RMWREG32(MMC_BOOT_MCI_HC_MODE, SDHCI_HC_START_BIT, SDHCI_HC_WIDTH, 0);
-
-	/* Wait for the MMC_BOOT_MCI_POWER write to go through. */
-	mmc_mclk_reg_wr_delay();
-
-	/* Reset controller */
-	RMWREG32(MMC_BOOT_MCI_POWER, CORE_SW_RST_START, CORE_SW_RST_WIDTH, 1);
-
-	/* Wait for the MMC_BOOT_MCI_POWER write to go through. */
-	mmc_mclk_reg_wr_delay();
 
 	/* Initialize any clocks needed for SDC controller */
 	clock_init_mmc(mmc_slot);
@@ -1951,7 +1832,7 @@ unsigned int mmc_boot_init(struct mmc_host *host)
  * - get Extended CSD (for mmc)
  */
 static unsigned int
-mmc_boot_identify_card(struct mmc_host *host, struct mmc_card *card)
+mmc_boot_identify_card(struct mmc_boot_host *host, struct mmc_boot_card *card)
 {
 	unsigned int mmc_return = MMC_BOOT_E_SUCCESS;
 	unsigned int raw_csd[4];
@@ -2065,7 +1946,7 @@ static unsigned int mmc_boot_send_app_cmd(unsigned int rca)
 	return MMC_BOOT_E_SUCCESS;
 }
 
-static unsigned int mmc_boot_sd_init_card(struct mmc_card *card)
+static unsigned int mmc_boot_sd_init_card(struct mmc_boot_card *card)
 {
 	unsigned int i, mmc_ret;
 	unsigned int ocr_cmd_arg;
@@ -2127,7 +2008,7 @@ static unsigned int mmc_boot_sd_init_card(struct mmc_card *card)
  * voltage and set the card inready state.
  */
 static unsigned int
-mmc_boot_init_card(struct mmc_host *host, struct mmc_card *card)
+mmc_boot_init_card(struct mmc_boot_host *host, struct mmc_boot_card *card)
 {
 	unsigned int mmc_retry = 0;
 	unsigned int mmc_return = MMC_BOOT_E_SUCCESS;
@@ -2180,14 +2061,11 @@ mmc_boot_init_card(struct mmc_host *host, struct mmc_card *card)
                 Initialization not completed\n", mmc_return);
 		return MMC_BOOT_E_CARD_BUSY;
 	}
-
-	card->block_size = BLOCK_SIZE;
-
 	return MMC_BOOT_E_SUCCESS;
 }
 
 static unsigned int
-mmc_boot_set_sd_bus_width(struct mmc_card *card, unsigned int width)
+mmc_boot_set_sd_bus_width(struct mmc_boot_card *card, unsigned int width)
 {
 	struct mmc_boot_command cmd;
 	unsigned int mmc_ret = MMC_BOOT_E_SUCCESS;
@@ -2238,7 +2116,7 @@ mmc_boot_set_sd_bus_width(struct mmc_card *card, unsigned int width)
 }
 
 static unsigned int
-mmc_boot_set_sd_hs(struct mmc_host *host, struct mmc_card *card)
+mmc_boot_set_sd_hs(struct mmc_boot_host *host, struct mmc_boot_card *card)
 {
 	unsigned char sw_buf[64];
 	unsigned int mmc_ret;
@@ -2266,8 +2144,8 @@ mmc_boot_set_sd_hs(struct mmc_host *host, struct mmc_card *card)
  */
 
 static unsigned int
-mmc_boot_init_and_identify_cards(struct mmc_host *host,
-				 struct mmc_card *card)
+mmc_boot_init_and_identify_cards(struct mmc_boot_host *host,
+				 struct mmc_boot_card *card)
 {
 	unsigned int mmc_return = MMC_BOOT_E_SUCCESS;
 	unsigned int status;
@@ -2329,35 +2207,15 @@ mmc_boot_init_and_identify_cards(struct mmc_host *host,
 			return mmc_return;
 		}
 
-		/* Enable HS200 mode by default if supported,
-		 * else if DDR mode is supported enable it.
-		 * else use default 4/8 bit mode
-		 */
-		if (card_supports_hs200_mode() && host->caps.hs200_mode) {
-			mmc_return = mmc_set_hs200_mode(host, card);
-			if (mmc_return != MMC_BOOT_E_SUCCESS) {
-				dprintf(CRITICAL,
-					"Error No.%d: Failure to set HS200 mode for Card(RCA:%x)\n",
-					mmc_return, card->rca);
-				return mmc_return;
-			}
-		} else if (card_supports_ddr_mode() && host->caps.ddr_mode) {
-			mmc_return = mmc_set_ddr_mode(host, card);
-			if (mmc_return != MMC_BOOT_E_SUCCESS) {
-				dprintf(CRITICAL,
-					"Error No.%d: Failure to set DDR mode for Card(RCA:%x)\n",
-					mmc_return, card->rca);
-				return mmc_return;
-			}
-		} else {
-			mmc_return =
-				mmc_boot_set_bus_width(card, host->caps.bus_width);
-			if (mmc_return != MMC_BOOT_E_SUCCESS) {
-				dprintf(CRITICAL,
-					"Error No.%d: Failure to set wide bus for Card(RCA:%x)\n",
-					mmc_return, card->rca);
-				return mmc_return;
-			}
+		/* enable wide bus */
+		mmc_bus_width = target_mmc_bus_width();
+		mmc_return =
+		    mmc_boot_set_bus_width(card, mmc_bus_width);
+		if (mmc_return != MMC_BOOT_E_SUCCESS) {
+			dprintf(CRITICAL,
+				"Error No.%d: Failure to set wide bus for Card(RCA:%x)\n",
+				mmc_return, card->rca);
+			return mmc_return;
 		}
 	}
 
@@ -2397,16 +2255,13 @@ unsigned int mmc_boot_main(unsigned char slot, unsigned int base)
 {
 	unsigned int mmc_ret = MMC_BOOT_E_SUCCESS;
 
-	memset((struct mmc_host *)&mmc_host, 0,
-	       sizeof(struct mmc_host));
-	memset((struct mmc_card *)&mmc_card, 0,
-	       sizeof(struct mmc_card));
+	memset((struct mmc_boot_host *)&mmc_host, 0,
+	       sizeof(struct mmc_boot_host));
+	memset((struct mmc_boot_card *)&mmc_card, 0,
+	       sizeof(struct mmc_boot_card));
 
 	mmc_slot = slot;
 	mmc_boot_mci_base = base;
-
-	/* Get the capabilities for the host/target */
-	target_mmc_caps(&mmc_host);
 
 	/* Initialize necessary data structure and enable/set clock and power */
 	dprintf(SPEW, " Initializing MMC host data structure and clock!\n");
@@ -2433,7 +2288,7 @@ unsigned int mmc_boot_main(unsigned char slot, unsigned int base)
 	mmc_display_csd();
 	mmc_display_ext_csd();
 
-	mmc_ret = partition_read_table();
+	mmc_ret = partition_read_table(&mmc_host, &mmc_card);
 	return mmc_ret;
 }
 
@@ -2504,7 +2359,7 @@ mmc_read(unsigned long long data_addr, unsigned int *out, unsigned int data_len)
  * Function to read registers from MMC or SD card
  */
 static unsigned int
-mmc_boot_read_reg(struct mmc_card *card,
+mmc_boot_read_reg(struct mmc_boot_card *card,
 		  unsigned int data_len,
 		  unsigned int command, unsigned int addr, unsigned int *out)
 {
@@ -2573,7 +2428,7 @@ mmc_boot_read_reg(struct mmc_card *card,
  * Function to set/clear power-on write protection for the user area partitions
  */
 static unsigned int
-mmc_boot_set_clr_power_on_wp_user(struct mmc_card *card,
+mmc_boot_set_clr_power_on_wp_user(struct mmc_boot_card *card,
 				  unsigned int addr,
 				  unsigned int size, unsigned char set_clear_wp)
 {
@@ -2697,7 +2552,7 @@ mmc_boot_set_clr_power_on_wp_user(struct mmc_card *card,
  * Function to get Write Protect status of the given sector
  */
 static unsigned int
-mmc_boot_get_wp_status(struct mmc_card *card, unsigned int sector)
+mmc_boot_get_wp_status(struct mmc_boot_card *card, unsigned int sector)
 {
 	unsigned int rc = MMC_BOOT_E_SUCCESS;
 	memset(wp_status_buf, 0, 8);
@@ -2910,7 +2765,7 @@ mmc_boot_fifo_write(unsigned int *mmc_ptr, unsigned int data_len)
  */
 
 static unsigned int
-mmc_boot_send_erase_group_start(struct mmc_card *card,
+mmc_boot_send_erase_group_start(struct mmc_boot_card *card,
 				unsigned long long data_addr)
 {
 	struct mmc_boot_command cmd;
@@ -2945,7 +2800,7 @@ mmc_boot_send_erase_group_start(struct mmc_card *card,
  * CMD36 ERASE GROUP END
  */
 static unsigned int
-mmc_boot_send_erase_group_end(struct mmc_card *card,
+mmc_boot_send_erase_group_end(struct mmc_boot_card *card,
 			      unsigned long long data_addr)
 {
 	struct mmc_boot_command cmd;
@@ -2978,7 +2833,7 @@ mmc_boot_send_erase_group_end(struct mmc_card *card,
 /*
  * CMD38 ERASE
  */
-static unsigned int mmc_boot_send_erase(struct mmc_card *card)
+static unsigned int mmc_boot_send_erase(struct mmc_boot_card *card)
 {
 
 	struct mmc_boot_command cmd;
@@ -3118,6 +2973,16 @@ mmc_erase_card(unsigned long long data_addr, unsigned long long size)
 	return MMC_BOOT_E_SUCCESS;
 }
 
+struct mmc_boot_host *get_mmc_host(void)
+{
+	return &mmc_host;
+}
+
+struct mmc_boot_card *get_mmc_card(void)
+{
+	return &mmc_card;
+}
+
 /*
  * Disable MCI clk
  */
@@ -3153,6 +3018,15 @@ void mmc_boot_mci_clk_enable()
 
 	/* Wait for the MMC_BOOT_MCI_CLK write to go through. */
 	mmc_mclk_reg_wr_delay();
+}
+
+uint64_t mmc_get_device_capacity()
+{
+	struct mmc_boot_card *card;
+
+	card = get_mmc_card();
+
+	return card->capacity;
 }
 
 #if MMC_BOOT_BAM
@@ -3427,68 +3301,3 @@ mmc_boot_bam_setup_desc(unsigned int *data_ptr,
 }
 
 #endif
-
-/*
- * Check if card supports DDR mode
- */
-uint8_t card_supports_ddr_mode()
-{
-	if (IS_BIT_SET_EXT_CSD(MMC_DEVICE_TYPE, 2) ||
-		IS_BIT_SET_EXT_CSD(MMC_DEVICE_TYPE, 3))
-		return 1;
-	else
-		return 0;
-}
-
-/*
- * Check if card suppports HS200 mode
- */
-uint8_t card_supports_hs200_mode()
-{
-	if (IS_BIT_SET_EXT_CSD(MMC_DEVICE_TYPE, 4) ||
-		IS_BIT_SET_EXT_CSD(MMC_DEVICE_TYPE, 5))
-		return 1;
-	else
-		return 0;
-}
-
-/* Return the density of the mmc device */
-uint64_t mmc_get_device_capacity()
-{
-	return mmc_card.capacity;
-}
-
-/* Return the block size of the mmc device */
-uint32_t mmc_get_device_blocksize()
-{
-	return mmc_card.block_size;
-}
-
-void mmc_put_card_to_sleep(void)
-{
-	uint32_t mmc_ret;
-	struct mmc_boot_command cmd = {0};
-
-	cmd.cmd_index = CMD7_SELECT_DESELECT_CARD;
-	cmd.argument = 0x00000000;
-	cmd.cmd_type = MMC_BOOT_CMD_ADDRESS;
-	cmd.resp_type = MMC_BOOT_RESP_NONE;
-
-	/* send command */
-	mmc_ret = mmc_boot_send_command(&cmd);
-	if (mmc_ret != MMC_BOOT_E_SUCCESS)
-	{
-		dprintf(CRITICAL, "card deselect error: %d\n", mmc_ret);
-		return;
-	}
-
-	cmd.cmd_index = CMD5_SLEEP_AWAKE;
-	cmd.argument = (mmc_card.rca << MMC_CARD_RCA_BIT) | MMC_CARD_SLEEP;
-	cmd.cmd_type = MMC_BOOT_CMD_ADDRESS;
-	cmd.resp_type = MMC_BOOT_RESP_R1B;
-
-	/* send command */
-	mmc_ret = mmc_boot_send_command(&cmd);
-	if (mmc_ret != MMC_BOOT_E_SUCCESS)
-		dprintf(CRITICAL, "card sleep error: %d\n", mmc_ret);
-}

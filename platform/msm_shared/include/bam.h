@@ -1,17 +1,17 @@
 /* Copyright (c) 2012, The Linux Foundation. All rights reserved.
- *
+
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *     * Neither the name of The Linux Foundation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of The Linux Foundation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
@@ -32,42 +32,9 @@
 #include <stdint.h>
 #include <compiler.h>
 
-#if BAM_V170
-#define BAM_IRQ_SRCS(x, n)              (0x00003000 + 0x1000 * (n) + (x))
-#define BAM_IRQ_SRCS_MSK(x, n)          (0x00003004 + 0x1000 * (n) + (x))
-#define BAM_IRQ_SRCS_UNMASKED(x)        (0x00003018 + (x))
-#define BAM_TRUST_REG(x)                (0x00002000 + (x))
-#define BAM_P_CTRLn(n, x)               (0x00013000 + 0x1000 * (n) + (x))
-#define BAM_P_RSTn(n, x)                (0x00013000 + 0x4 + 0x1000 * (n) + (x))
-#define BAM_P_IRQ_STTSn(n, x)           (0x00013000 + 0x10 + 0x1000 * (n) + (x))
-#define BAM_P_IRQ_CLRn(n, x)            (0x00013000 + 0x14 + 0x1000 * (n) + (x))
-#define BAM_P_IRQ_ENn(n, x)             (0x00013000 + 0x18 + 0x1000 * (n) + (x))
-#define BAM_P_TRUST_REGn(n, x)          (0x2020 + 0x4* (n) + (x))
-#define BAM_P_SW_OFSTSn(n, x)           (0x00013800 + 0x1000 * (n) + (x))
-#define BAM_P_EVNT_REGn(n, x)           (0x00013818 + 0x1000 * (n) + (x))
-#define BAM_P_DESC_FIFO_ADDRn(n, x)     (0x0001381C + 0x1000 * (n) + (x))
-#define BAM_P_FIFO_SIZESn(n, x)         (0x00013820 + 0x1000 * (n) + (x))
-#else
-#define BAM_IRQ_SRCS(x, n)              (0x00000800 + (0x80 * (n)) + (x))
-#define BAM_IRQ_SRCS_MSK(x, n)          (0x00000804 + (0x80 * (n)) + (x))
-#define BAM_IRQ_SRCS_UNMASKED(x)        (0x00000030 + (x))
-#define BAM_TRUST_REG(x)                (0x00000070 + (x))
-#define BAM_P_CTRLn(n, x)               (0x00001000 + 0x1000 * (n) + (x))
-#define BAM_P_RSTn(n, x)                (0x00001000 + 0x4 + 0x1000 * (n) + (x))
-#define BAM_P_IRQ_STTSn(n, x)           (0x00001000 + 0x10 + 0x1000 * (n) + (x))
-#define BAM_P_IRQ_CLRn(n, x)            (0x00001000 + 0x14 + 0x1000 * (n) + (x))
-#define BAM_P_IRQ_ENn(n, x)             (0x00001000 + 0x18 + 0x1000 * (n) + (x))
-#define BAM_P_TRUST_REGn(n, x)          (0x00001000 + 0x30 + 0x1000 * (n) + (x))
-#define BAM_P_SW_OFSTSn(n, x)           (0x00001800 + 0x1000 * (n) + (x))
-#define BAM_P_EVNT_REGn(n, x)           (0x00001818 + 0x1000 * (n) + (x))
-#define BAM_P_DESC_FIFO_ADDRn(n, x)     (0x0000181C + 0x1000 * (n) + (x))
-#define BAM_P_FIFO_SIZESn(n, x)         (0x00001820 + 0x1000 * (n) + (x))
-#endif
-
 #define BAM_DESC_SIZE                   8
 #define BAM_CE_SIZE                     16
 #define BAM_MAX_DESC_DATA_LEN           0xFFFF
-#define BAM_NDP_MAX_DESC_DATA_LEN       0x7FFF
 #define BAM_DATA_READ                   0
 #define BAM_DATA_WRITE                  1
 
@@ -77,42 +44,10 @@
 
 #define BAM_DESC_CNT_TRSHLD_REG(x)      (0x0008 + (x))
 #define COUNT_TRESHOLD_MASK             0xFF
+#define BAM_IRQ_SRCS(x)                 (0x0000000C + (x))
+#define BAM_IRQ_SRCS_MSK(x)             (0x00000010 + (x))
 #define BAM_IRQ_MASK                    (1 << 31)
 #define P_IRQ_MASK                      (1)
-
-#define BAM_IRQ_STTS(x)                 (0x00000014 + (x))
-
-#define BAM_IRQ_EN_REG(x)               (0x001C + (x))
-#define BAM_TIMER_EN_MASK               (1 << 4)
-/* Available only in BAM-Lite */
-#define BAM_EMPTY_EN_MASK               (1 << 3)
-#define BAM_ERROR_EN_MASK               (1 << 2)
-/* Available only in BAM */
-#define BAM_HRESP_ERR_EN_MASK           (1 << 1)
-
-#define BAM_EE_MASK                     (7 << 0)
-#define BAM_RESET_BLK_MASK              (1 << 7)
-#define BAM_LOCK_EE_CTRL_MASK           (1 << 13)
-
-#define BAM_CNFG_BITS(x)                (0x0000007C + (x))
-
-#define P_SYS_MODE_MASK                 (1 << 5)
-/* 1: Producer mode 0: Consumer mode */
-#define P_DIRECTION_SHIFT               3
-#define P_LOCK_GRP_SHIFT                16
-#define P_ENABLE                        (1 << 1)
-
-#define P_DESC_FIFO_PEER_OFST_MASK      0xFF
-
-
-/* Flags for descriptors */
-#define BAM_DESC_INT_FLAG               (1 << 7)
-#define BAM_DESC_EOT_FLAG               (1 << 6)
-#define BAM_DESC_EOB_FLAG               (1 << 5)
-#define BAM_DESC_NWD_FLAG               (1 << 4)
-#define BAM_DESC_CMD_FLAG               (1 << 3)
-#define BAM_DESC_LOCK_FLAG              (1 << 2)
-#define BAM_DESC_UNLOCK_FLAG            (1 << 1)
 
 /* Pipe Interrupt masks */
 enum p_int_type
@@ -122,6 +57,51 @@ enum p_int_type
 	P_ERR_EN_MASK = (1 << 4),
 	P_TRNSFR_END_EN_MASK = (1 << 5)
 };
+
+#define BAM_IRQ_STTS(x)                 (0x00000014 + (x))
+#define BAM_IRQ_SRCS_UNMASKED(x)        (0x00000030 + (x))
+
+#define BAM_IRQ_EN_REG(x)               (0x001C + (x))
+#define BAM_TIMER_EN_MASK               (1 << 4)
+/* Available only in BAM-Lite */
+#define BAM_EMPTY_EN_MASK               (1 << 3)
+#define BAM_ERROR_EN_MASK               (1 << 2)
+/* Available only in BAM */
+#define BAM_HRESP_ERR_EN_MASK           (1 << 1)
+
+#define BAM_TRUST_REG(x)                (0x00000070 + (x))
+#define BAM_EE_MASK                     (7 << 0)
+#define BAM_RESET_BLK_MASK              (1 << 7)
+#define BAM_LOCK_EE_CTRL_MASK           (1 << 13)
+
+#define BAM_CNFG_BITS(x)                (0x0000007C + (x))
+
+#define BAM_P_CTRLn(n, x)               (0x00001000 + 0x1000 * (n) + (x))
+#define P_SYS_MODE_MASK                 (1 << 5)
+/* 1: Producer mode 0: Consumer mode */
+#define P_DIRECTION_SHIFT               3
+#define P_ENABLE                        (1 << 1)
+
+#define BAM_P_RSTn(n, x)                (0x00001000 + 0x4 + 0x1000 * (n) + (x))
+#define BAM_P_IRQ_STTSn(n, x)           (0x00001000 + 0x10 + 0x1000 * (n) + (x))
+#define BAM_P_IRQ_CLRn(n, x)            (0x00001000 + 0x14 + 0x1000 * (n) + (x))
+#define BAM_P_IRQ_ENn(n, x)             (0x00001000 + 0x18 + 0x1000 * (n) + (x))
+#define BAM_P_TRUST_REGn(n, x)          (0x00001000 + 0x30 + 0x1000 * (n) + (x))
+#define BAM_P_SW_OFSTSn(n, x)           (0x00001800 + 0x1000 * (n) + (x))
+#define BAM_P_EVNT_REGn(n, x)           (0x00001818 + 0x1000 * (n) + (x))
+#define P_DESC_FIFO_PEER_OFST_MASK      0xFF
+
+#define BAM_P_DESC_FIFO_ADDRn(n, x)     (0x0000181C + 0x1000 * (n) + (x))
+#define BAM_P_FIFO_SIZESn(n, x)         (0x00001820 + 0x1000 * (n) + (x))
+
+/* Flags for descriptors */
+#define BAM_DESC_INT_FLAG               (1 << 7)
+#define BAM_DESC_EOT_FLAG               (1 << 6)
+#define BAM_DESC_EOB_FLAG               (1 << 5)
+#define BAM_DESC_NWD_FLAG               (1 << 4)
+#define BAM_DESC_CMD_FLAG               (1 << 3)
+#define BAM_DESC_LOCK_FLAG              (1 << 2)
+#define BAM_DESC_UNLOCK_FLAG            (1 << 1)
 
 enum bam_ce_cmd_t{
 	CE_WRITE_TYPE = 0,
@@ -217,7 +197,6 @@ struct bam_pipe {
 	uint8_t spi_num;
 	uint8_t int_mode;
 	uint8_t initialized;
-	uint8_t lock_grp;
 };
 
 /* Structure to define a BAM instance being used
@@ -227,8 +206,7 @@ struct bam_pipe {
  * pipe_pair:The pipe pairs to be used to access the BAM.
  * threshold:This Register holds a threshold value for the
  *           counter summing the Size of the Descriptors Provided.
- * ee:Execution Environment for the BAM.
- * desc_len: Max desc length for the current BAM.
+ * init:Pipe initialization status for the BAM.
  */
 struct bam_instance {
 	uint32_t base;
@@ -237,8 +215,6 @@ struct bam_instance {
 	uint8_t num_of_pipes;
 	struct bam_pipe pipe[3];
 	uint16_t threshold;
-	uint32_t ee;
-	uint16_t max_desc_len;
 	void (*callback)(int);
 };
 
@@ -276,7 +252,5 @@ int bam_wait_for_interrupt(struct bam_instance *bam,
                            uint8_t pipe_num,
                            enum p_int_type interrupt);
 void bam_read_offset_update(struct bam_instance *bam, unsigned int pipe_num);
-void bam_pipe_reset(struct bam_instance *bam,
-					uint8_t pipe_num);
 
 #endif

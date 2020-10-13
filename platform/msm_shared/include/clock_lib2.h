@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -8,7 +8,7 @@
  *   * Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- *   * Neither the name of Linux Foundation nor
+ *   * Neither the name of The Linux Foundation nor
  *     the names of its contributors may be used to endorse or promote
  *     products derived from this software without specific prior written
  *     permission.
@@ -29,10 +29,10 @@
 #ifndef __CLOCK_LIB2_H
 #define __CLOCK_LIB2_H
 
-#include <bits.h>
 /*
  * Bit manipulation macros
  */
+#define BIT(n)              (1 << (n))
 #define BM(msb, lsb)        (((((uint32_t)-1) << (31-msb)) >> (31-msb+lsb)) << lsb)
 #define BVAL(msb, lsb, val) (((val) << lsb) & BM(msb, lsb))
 
@@ -58,45 +58,10 @@
                               | BVAL(10, 8, s##_source_val), \
         }
 
-/* F(frequency, source, div, m, n) */
-#define F_EXT_SRC(f, s, div, m, n) \
-        { \
-                .freq_hz = (f), \
-                .m_val   = (m), \
-                .n_val   = ~((n)-(m)) * !!(n), \
-                .d_val   = ~(n),\
-                .div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
-                              | BVAL(10, 8, s##_source_val), \
-        }
-
-/* F_MM(frequency, source, div, m, n) */
-#define F_MM(f, s, div, m, n) \
-	{ \
-		.freq_hz = (f), \
-		.src_clk = &s##_clk_src.c, \
-		.m_val = (m), \
-		.n_val = ~((n)-(m)) * !!(n), \
-		.d_val = ~(n),\
-		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
-			| BVAL(10, 8, s##_mm_source_val), \
-	}
-
-#define F_MDSS(f, s, div, m, n) \
-	{ \
-		.freq_hz = (f), \
-		.m_val = (m), \
-		.n_val = ~((n)-(m)) * !!(n), \
-		.d_val = ~(n),\
-		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
-			| BVAL(10, 8, s##_mm_source_val), \
-	}
 
 /* Branch Clock Bits */
 #define CBCR_BRANCH_ENABLE_BIT  BIT(0)
 #define CBCR_BRANCH_OFF_BIT     BIT(31)
-#define BRANCH_CHECK_MASK       BM(31, 28)
-#define BRANCH_ON_VAL           BVAL(31, 28, 0x0)
-#define BRANCH_NOC_FSM_ON_VAL   BVAL(31, 28, 0x2)
 
 /* Root Clock Bits */
 #define CMD_UPDATE_BIT          BIT(0)
@@ -167,31 +132,11 @@ struct rcg_clk {
 	void   (*set_rate)(struct rcg_clk *, struct clk_freq_tbl *);
 
 	/* freq table */
-	struct clk_freq_tbl *freq_tbl;
+	struct clk_freq_tbl *const freq_tbl;
 	struct clk_freq_tbl *current_freq;
 
 	struct clk c;
 };
-
-/* Vote Clock */
-struct vote_clk {
-
-	uint32_t *const cbcr_reg;
-	uint32_t *const vote_reg;
-	uint32_t en_mask;
-
-    struct clk c;
-};
-
-struct reset_clk {
-	uint32_t bcr_reg;
-	struct clk c;
-};
-
-static inline struct reset_clk *to_reset_clk(struct clk *clk)
-{
-	return container_of(clk, struct reset_clk, c);
-}
 
 static inline struct rcg_clk *to_rcg_clk(struct clk *clk)
 {
@@ -201,11 +146,6 @@ static inline struct rcg_clk *to_rcg_clk(struct clk *clk)
 static inline struct branch_clk *to_branch_clk(struct clk *clk)
 {
 	return container_of(clk, struct branch_clk, c);
-}
-
-static inline struct vote_clk *to_local_vote_clk(struct clk *clk)
-{
-	return container_of(clk, struct vote_clk, c);
 }
 
 /* RCG clock functions */
@@ -223,10 +163,4 @@ int  clock_lib2_branch_clk_enable(struct clk *clk);
 void clock_lib2_branch_clk_disable(struct clk *clk);
 int  clock_lib2_branch_set_rate(struct clk *c, unsigned rate);
 
-/* Vote clock functions*/
-int clock_lib2_vote_clk_enable(struct clk *c);
-void clock_lib2_vote_clk_disable(struct clk *c);
-/* clock reset function */
-int clock_lib2_reset_clk_reset(struct clk *c, enum clk_reset_action action);
-int clock_lib2_branch_clk_reset(struct clk *c, enum clk_reset_action action);
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,7 +31,23 @@
 #include <msm_panel.h>
 #include <mdp4.h>
 #include <mipi_dsi.h>
-#include <boot_stats.h>
+
+#ifndef DISPLAY_TYPE_HDMI
+static int hdmi_dtv_init(void)
+{
+        return 0;
+}
+
+static int hdmi_dtv_on(struct msm_panel_info *pinfo)
+{
+        return 0;
+}
+
+static int hdmi_msm_turn_on(void)
+{
+        return 0;
+}
+#endif
 
 static struct msm_fb_panel_data *panel;
 
@@ -56,7 +72,6 @@ static int msm_fb_alloc(struct fbcon_config *fb)
 int msm_display_config()
 {
 	int ret = NO_ERROR;
-	int mdp_rev;
 	struct msm_panel_info *pinfo;
 
 	if (!panel)
@@ -76,14 +91,7 @@ int msm_display_config()
 		break;
 	case MIPI_VIDEO_PANEL:
 		dprintf(INFO, "Config MIPI_VIDEO_PANEL.\n");
-
-		mdp_rev = mdp_get_revision();
-		if (mdp_rev == MDP_REV_50 || mdp_rev == MDP_REV_304 ||
-						mdp_rev == MDP_REV_305)
-			ret = mdss_dsi_config(panel);
-		else
-			ret = mipi_config(panel);
-
+		ret = mipi_config(panel);
 		if (ret)
 			goto msm_display_config_out;
 
@@ -96,15 +104,9 @@ int msm_display_config()
 		break;
 	case MIPI_CMD_PANEL:
 		dprintf(INFO, "Config MIPI_CMD_PANEL.\n");
-		mdp_rev = mdp_get_revision();
-		if (mdp_rev == MDP_REV_50 || mdp_rev == MDP_REV_304 ||
-						mdp_rev == MDP_REV_305)
-			ret = mdss_dsi_config(panel);
-		else
-			ret = mipi_config(panel);
+		ret = mipi_config(panel);
 		if (ret)
 			goto msm_display_config_out;
-
 		ret = mdp_dsi_cmd_config(pinfo, &(panel->fb));
 		if (ret)
 			goto msm_display_config_out;
@@ -117,13 +119,7 @@ int msm_display_config()
 		break;
 	case HDMI_PANEL:
 		dprintf(INFO, "Config HDMI PANEL.\n");
-		ret = mdss_hdmi_config(pinfo, &(panel->fb));
-		if (ret)
-			goto msm_display_config_out;
-		break;
-	case EDP_PANEL:
-		dprintf(INFO, "Config EDP PANEL.\n");
-		ret = mdp_edp_config(pinfo, &(panel->fb));
+		ret = hdmi_dtv_init();
 		if (ret)
 			goto msm_display_config_out;
 		break;
@@ -141,21 +137,12 @@ msm_display_config_out:
 int msm_display_on()
 {
 	int ret = NO_ERROR;
-	int mdp_rev;
 	struct msm_panel_info *pinfo;
 
 	if (!panel)
 		return ERR_INVALID_ARGS;
 
-	bs_set_timestamp(BS_SPLASH_SCREEN_DISPLAY);
-
 	pinfo = &(panel->panel_info);
-
-	if (pinfo->pre_on) {
-		ret = pinfo->pre_on();
-		if (ret)
-			goto msm_display_on_out;
-	}
 
 	switch (pinfo->type) {
 	case LVDS_PANEL:
@@ -169,35 +156,21 @@ int msm_display_on()
 		break;
 	case MIPI_VIDEO_PANEL:
 		dprintf(INFO, "Turn on MIPI_VIDEO_PANEL.\n");
-		ret = mdp_dsi_video_on(pinfo);
+		ret = mdp_dsi_video_on();
 		if (ret)
 			goto msm_display_on_out;
-
-		ret = mdss_dsi_post_on(panel);
-		if (ret)
-			goto msm_display_on_out;
-
 		ret = mipi_dsi_on();
 		if (ret)
 			goto msm_display_on_out;
 		break;
 	case MIPI_CMD_PANEL:
 		dprintf(INFO, "Turn on MIPI_CMD_PANEL.\n");
-		ret = mdp_dma_on(pinfo);
+		ret = mdp_dma_on();
 		if (ret)
 			goto msm_display_on_out;
-		mdp_rev = mdp_get_revision();
-		if (mdp_rev != MDP_REV_50 && mdp_rev != MDP_REV_304 &&
-						mdp_rev != MDP_REV_305) {
-			ret = mipi_cmd_trigger();
-			if (ret)
-				goto msm_display_on_out;
-		}
-
-		ret = mdss_dsi_post_on(panel);
+		ret = mipi_cmd_trigger();
 		if (ret)
 			goto msm_display_on_out;
-
 		break;
 	case LCDC_PANEL:
 		dprintf(INFO, "Turn on LCDC PANEL.\n");
@@ -207,20 +180,15 @@ int msm_display_on()
 		break;
 	case HDMI_PANEL:
 		dprintf(INFO, "Turn on HDMI PANEL.\n");
-		ret = mdss_hdmi_init();
+		ret = hdmi_dtv_on(pinfo);
 		if (ret)
 			goto msm_display_on_out;
 
-		ret = mdss_hdmi_on();
+		ret = hdmi_msm_turn_on();
 		if (ret)
 			goto msm_display_on_out;
 		break;
-	case EDP_PANEL:
-		dprintf(INFO, "Turn on EDP PANEL.\n");
-		ret = mdp_edp_on(pinfo);
-		if (ret)
-			goto msm_display_on_out;
-		break;
+
 	default:
 		return ERR_INVALID_ARGS;
 	};
@@ -235,40 +203,24 @@ msm_display_on_out:
 int msm_display_init(struct msm_fb_panel_data *pdata)
 {
 	int ret = NO_ERROR;
-
+	struct msm_panel_info *pinfo;
 	panel = pdata;
 	if (!panel) {
 		ret = ERR_INVALID_ARGS;
 		goto msm_display_init_out;
 	}
-
-	/* Turn on panel */
-	if (pdata->power_func)
-		ret = pdata->power_func(1, &(panel->panel_info));
-
-	if (ret)
-		goto msm_display_init_out;
+	pinfo = &(panel->panel_info);
 
 	/* Enable clock */
 	if (pdata->clk_func)
-		ret = pdata->clk_func(1);
-
-	/* Only enabled for auto PLL calculation */
-	if (pdata->pll_clk_func)
-		ret = pdata->pll_clk_func(1, &(panel->panel_info));
+		ret = pdata->clk_func(1, &pdata->panel_info);
 
 	if (ret)
 		goto msm_display_init_out;
 
-	/* pinfo prepare  */
-	if (pdata->panel_info.prepare) {
-		/* this is for edp which pinfo derived from edid */
-		ret = pdata->panel_info.prepare();
-		panel->fb.width =  panel->panel_info.xres;
-		panel->fb.height =  panel->panel_info.yres;
-		panel->fb.stride =  panel->panel_info.xres;
-		panel->fb.bpp =  panel->panel_info.bpp;
-	}
+	/* Turn on panel */
+	if (pdata->power_func)
+		ret = pdata->power_func(1);
 
 	if (ret)
 		goto msm_display_init_out;
@@ -277,25 +229,13 @@ int msm_display_init(struct msm_fb_panel_data *pdata)
 	if (ret)
 		goto msm_display_init_out;
 
+	fbcon_setup(&(panel->fb));
+	display_image_on_screen(pinfo);
 	ret = msm_display_config();
 	if (ret)
 		goto msm_display_init_out;
 
-	fbcon_setup(&(panel->fb));
-	display_image_on_screen();
 	ret = msm_display_on();
-	if (ret)
-		goto msm_display_init_out;
-
-	if (pdata->post_power_func)
-		ret = pdata->post_power_func(1);
-	if (ret)
-		goto msm_display_init_out;
-
-	/* Turn on backlight */
-	if (pdata->bl_func)
-		ret = pdata->bl_func(1);
-
 	if (ret)
 		goto msm_display_init_out;
 
@@ -313,12 +253,6 @@ int msm_display_off()
 
 	pinfo = &(panel->panel_info);
 
-	if (pinfo->pre_off) {
-		ret = pinfo->pre_off();
-		if (ret)
-			goto msm_display_off_out;
-	}
-
 	switch (pinfo->type) {
 	case LVDS_PANEL:
 		dprintf(INFO, "Turn off LVDS PANEL.\n");
@@ -329,7 +263,7 @@ int msm_display_off()
 		ret = mdp_dsi_video_off();
 		if (ret)
 			goto msm_display_off_out;
-		ret = mipi_dsi_off(pinfo);
+		ret = mipi_dsi_off();
 		if (ret)
 			goto msm_display_off_out;
 		break;
@@ -338,7 +272,7 @@ int msm_display_off()
 		ret = mdp_dsi_cmd_off();
 		if (ret)
 			goto msm_display_off_out;
-		ret = mipi_dsi_off(pinfo);
+		ret = mipi_dsi_off();
 		if (ret)
 			goto msm_display_off_out;
 		break;
@@ -346,47 +280,23 @@ int msm_display_off()
 		dprintf(INFO, "Turn off LCDC PANEL.\n");
 		mdp_lcdc_off();
 		break;
-	case EDP_PANEL:
-		dprintf(INFO, "Turn off EDP PANEL.\n");
-		ret = mdp_edp_off();
-		if (ret)
-			goto msm_display_off_out;
-		break;
 	default:
 		return ERR_INVALID_ARGS;
 	};
-
-	if (target_cont_splash_screen()) {
-		dprintf(INFO, "Continuous splash enabled, keeping panel alive.\n");
-		return NO_ERROR;
-	}
-
-	if (panel->post_power_func)
-		ret = panel->post_power_func(0);
-	if (ret)
-		goto msm_display_off_out;
-
-	/* Turn off backlight */
-	if (panel->bl_func)
-		ret = panel->bl_func(0);
 
 	if (pinfo->off)
 		ret = pinfo->off();
 
 	/* Disable clock */
 	if (panel->clk_func)
-		ret = panel->clk_func(0);
-
-	/* Only for AUTO PLL calculation */
-	if (panel->pll_clk_func)
-		ret = panel->pll_clk_func(0, pinfo);
+		ret = panel->clk_func(0, pinfo);
 
 	if (ret)
 		goto msm_display_off_out;
 
 	/* Disable panel */
 	if (panel->power_func)
-		ret = panel->power_func(0, pinfo);
+		ret = panel->power_func(0);
 
 msm_display_off_out:
 	return ret;

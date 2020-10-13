@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,63 +29,23 @@
 #include <debug.h>
 #include <reg.h>
 #include <spmi.h>
-#include <bits.h>
 #include <platform/iomap.h>
 #include <platform/irqs.h>
 #include <platform/interrupts.h>
-
-#define PMIC_ARB_V2 0x20010000
-#define CHNL_IDX(sid, pid) ((sid << 8) | pid)
 
 static uint32_t pmic_arb_chnl_num;
 static uint32_t pmic_arb_owner_id;
 static uint8_t pmic_irq_perph_id;
 static spmi_callback callback;
-static uint32_t pmic_arb_ver;
-static uint8_t *chnl_tbl;
-
-static void spmi_lookup_chnl_number()
-{
-	int i;
-	uint8_t slave_id;
-	uint8_t ppid_address;
-	/* We need a max of sid (4 bits) + pid (8bits) of uint8_t's */
-	uint32_t chnl_tbl_sz = BIT(12) * sizeof(uint8_t);
-
-	/* Allocate the channel table */
-	chnl_tbl = (uint8_t *) malloc(chnl_tbl_sz);
-	ASSERT(chnl_tbl);
-
-	for(i = 0; i < MAX_PERIPH ; i++)
-	{
-#if SPMI_CORE_V2
-		slave_id = (readl(PMIC_ARB_REG_CHLN(i)) & 0xf0000) >> 16;
-		ppid_address = (readl(PMIC_ARB_REG_CHLN(i)) & 0xff00) >> 8;
-#endif
-		chnl_tbl[CHNL_IDX(slave_id, ppid_address)] = i;
-	}
-}
 
 /* Function to initialize SPMI controller.
  * chnl_num : Channel number to be used by this EE.
  */
 void spmi_init(uint32_t chnl_num, uint32_t owner_id)
 {
-	/* Read the version numver */
-	pmic_arb_ver = readl(PMIC_ARB_SPMI_HW_VERSION);
-
-	if (pmic_arb_ver < PMIC_ARB_V2)
-	{
-		/* Initialize PMIC Arbiter Channel Number to
-		 * 0 by default of V1 HW
-		 */
-		pmic_arb_chnl_num = chnl_num;
-		pmic_arb_owner_id = owner_id;
-	}
-	else
-	{
-		spmi_lookup_chnl_number();
-	}
+	/* Initialize PMIC Arbiter Channel Number */
+	pmic_arb_chnl_num = chnl_num;
+	pmic_arb_owner_id = owner_id;
 }
 
 static void write_wdata_from_array(uint8_t *array,
@@ -107,6 +67,7 @@ static void write_wdata_from_array(uint8_t *array,
 
 	writel(val, PMIC_ARB_CHNLn_WDATA(pmic_arb_chnl_num, reg_num));
 }
+
 
 /* Initiate a write cmd by writing to cmd register.
  * Commands are written according to cmd parameters
@@ -131,17 +92,9 @@ unsigned int pmic_arb_write_cmd(struct pmic_arb_cmd *cmd,
 	uint32_t error;
 	uint32_t val = 0;
 
-	/* Look up for pmic channel only for V2 hardware
-	 * For V1-HW we dont care for channel number & always
-	 * use '0'
-	 */
-	if (pmic_arb_ver >= PMIC_ARB_V2)
-	{
-		pmic_arb_chnl_num = chnl_tbl[CHNL_IDX(cmd->slave_id, cmd->address)];
-	}
-
 	/* Disable IRQ mode for the current channel*/
 	writel(0x0, PMIC_ARB_CHNLn_CONFIG(pmic_arb_chnl_num));
+
 	/* Write parameters for the cmd */
 	if (cmd == NULL)
 	{
@@ -173,10 +126,8 @@ unsigned int pmic_arb_write_cmd(struct pmic_arb_cmd *cmd,
 	val = 0;
 	val |= ((uint32_t)(cmd->opcode) << PMIC_ARB_CMD_OPCODE_SHIFT);
 	val |= ((uint32_t)(cmd->priority) << PMIC_ARB_CMD_PRIORITY_SHIFT);
-#ifndef SPMI_CORE_V2
 	val |= ((uint32_t)(cmd->slave_id) << PMIC_ARB_CMD_SLAVE_ID_SHIFT);
 	val |= ((uint32_t)(cmd->address) << PMIC_ARB_CMD_ADDR_SHIFT);
-#endif
 	val |= ((uint32_t)(cmd->offset) << PMIC_ARB_CMD_ADDR_OFFSET_SHIFT);
 	val |= ((uint32_t)(cmd->byte_cnt));
 
@@ -207,11 +158,8 @@ static void read_rdata_into_array(uint8_t *array,
 	uint8_t shift_value[] = {0, 8, 16, 24};
 	int i;
 
-#if SPMI_CORE_V2
-		val = readl(PMIC_ARB_OBS_CHNLn_RDATA(pmic_arb_chnl_num, reg_num));
-#else
-		val = readl(PMIC_ARB_CHNLn_RDATA(pmic_arb_chnl_num, reg_num));
-#endif
+	val = readl(PMIC_ARB_CHNLn_RDATA(pmic_arb_chnl_num, reg_num));
+
 	/* Read at most 4 bytes */
 	for (i = 0; (i < 4) && (*bytes_read < array_size); i++)
 	{
@@ -244,22 +192,8 @@ unsigned int pmic_arb_read_cmd(struct pmic_arb_cmd *cmd,
 	uint32_t addr;
 	uint8_t bytes_read = 0;
 
-	/* Look up for pmic channel only for V2 hardware
-	 * For V1-HW we dont care for channel number & always
-	 * use '0'
-	 */
-	if (pmic_arb_ver >= PMIC_ARB_V2)
-	{
-		pmic_arb_chnl_num = chnl_tbl[CHNL_IDX(cmd->slave_id, cmd->address)];
-	}
-
-
 	/* Disable IRQ mode for the current channel*/
-#if SPMI_CORE_V2
-		writel(0x0, PMIC_ARB_OBS_CHNLn_CONFIG(pmic_arb_chnl_num));
-#else
-		writel(0x0, PMIC_ARB_CHNLn_CONFIG(pmic_arb_chnl_num));
-#endif
+	writel(0x0, PMIC_ARB_CHNLn_CONFIG(pmic_arb_chnl_num));
 
 	/* Fill in the byte count for the command
 	 * Note: Byte count is one less than the number of bytes transferred.
@@ -270,25 +204,15 @@ unsigned int pmic_arb_read_cmd(struct pmic_arb_cmd *cmd,
 
 	val |= ((uint32_t)(cmd->opcode) << PMIC_ARB_CMD_OPCODE_SHIFT);
 	val |= ((uint32_t)(cmd->priority) << PMIC_ARB_CMD_PRIORITY_SHIFT);
-#ifndef SPMI_CORE_V2
 	val |= ((uint32_t)(cmd->slave_id) << PMIC_ARB_CMD_SLAVE_ID_SHIFT);
 	val |= ((uint32_t)(cmd->address) << PMIC_ARB_CMD_ADDR_SHIFT);
-#endif
 	val |= ((uint32_t)(cmd->offset) << PMIC_ARB_CMD_ADDR_OFFSET_SHIFT);
 	val |= ((uint32_t)(cmd->byte_cnt));
 
-#if SPMI_CORE_V2
-		writel(val, PMIC_ARB_OBS_CHNLn_CMD0(pmic_arb_chnl_num));
-#else
-		writel(val, PMIC_ARB_CHNLn_CMD0(pmic_arb_chnl_num));
-#endif
+	writel(val, PMIC_ARB_CHNLn_CMD0(pmic_arb_chnl_num));
 
 	/* Wait till CMD DONE status */
-#if SPMI_CORE_V2
-		while (!(val = readl(PMIC_ARB_OBS_CHNLn_STATUS(pmic_arb_chnl_num))));
-#else
-		while (!(val = readl(PMIC_ARB_CHNLn_STATUS(pmic_arb_chnl_num))));
-#endif
+	while (!(val = readl(PMIC_ARB_CHNLn_STATUS(pmic_arb_chnl_num))));
 
 	/* Check for errors */
 	error = val ^ (1 << PMIC_ARB_CMD_DONE);

@@ -4,7 +4,6 @@ OBJS += \
 	$(LOCAL_DIR)/atoi.o \
 	$(LOCAL_DIR)/ctype.o \
 	$(LOCAL_DIR)/gcd_lcm.o \
-	$(LOCAL_DIR)/itoa.o \
 	$(LOCAL_DIR)/printf.o \
 	$(LOCAL_DIR)/malloc.o \
 	$(LOCAL_DIR)/rand.o \
@@ -19,3 +18,4 @@ OBJS += \
 	$(LOCAL_DIR)/atexit.o \
 	$(LOCAL_DIR)/pure_virtual.o
 endif
+

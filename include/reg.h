@@ -41,7 +41,4 @@
 
 #define writeb(v, a) (*REG8(a) = (v))
 #define readb(a) (*REG8(a))
-
-#define writehw(v, a) (*REG16(a) = (v))
-#define readhw(a) (*REG16(a))
 #endif

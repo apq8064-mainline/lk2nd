@@ -1,8 +1,6 @@
 /*
  * Copyright (c) 2008 Travis Geiselbrecht
  *
- * Copyright (c) 2014,2015 The Linux Foundation. All rights reserved.
- *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
  * (the "Software"), to deal in the Software without restriction,
@@ -34,13 +32,6 @@
 #include <platform/debug.h>
 #include <kernel/thread.h>
 #include <kernel/timer.h>
-#include <rand.h>
-
-void __attribute__ ((noreturn))
-__stack_chk_fail (void)
-{
-	panic("stack smashing detected.");
-}
 
 void spin(uint32_t usecs)
 {
@@ -92,6 +83,7 @@ int _dprintf(const char *fmt, ...)
 	va_end(ap);
 
 	dputs(ALWAYS, buf);
+
 	return err;
 }
 

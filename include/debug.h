@@ -1,8 +1,6 @@
 /*
  * Copyright (c) 2008 Travis Geiselbrecht
  *
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
- *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
  * (the "Software"), to deal in the Software without restriction,
@@ -58,10 +56,6 @@ int _dvprintf(const char *fmt, va_list ap);
 #define dprintf(level, x...) do { if ((level) <= DEBUGLEVEL) { _dprintf(x); } } while (0)
 #define dvprintf(level, x...) do { if ((level) <= DEBUGLEVEL) { _dvprintf(x); } } while (0)
 
-/* lk_log */
-char* lk_log_getbuf(void);
-unsigned lk_log_getsize(void);
-
 /* input */
 int dgetc(char *c, bool wait);
 
@@ -72,16 +66,6 @@ void _panic(void *caller, const char *fmt, ...) __PRINTFLIKE(2, 3);
 #define panic(x...) _panic(__GET_CALLER(), x)
 
 #define PANIC_UNIMPLEMENTED panic("%s unimplemented\n", __PRETTY_FUNCTION__)
-
-uintptr_t __stack_chk_guard;
-
-/*
-* Initialize the stack protector canary value.
-*/
-#define __stack_chk_guard_setup() do { __stack_chk_guard = get_canary(); } while(0)
-
-void __attribute__ ((noreturn))
-	__stack_chk_fail (void);
 
 /* spin the cpu for a period of (short) time */
 void spin(uint32_t usecs);

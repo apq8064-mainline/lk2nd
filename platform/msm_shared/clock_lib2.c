@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -25,7 +25,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <arch/defines.h>
 #include <assert.h>
 #include <reg.h>
 #include <err.h>
@@ -191,84 +190,4 @@ void clock_lib2_rcg_set_rate_hid(struct rcg_clk *rclk, struct clk_freq_tbl *freq
 	writel(cfg, rclk->cfg_reg);
 
 	clock_lib2_rcg_update_config(rclk);
-}
-
-/*=============== Vote clock ops =============*/
-
-/* Vote clock enable */
-int clock_lib2_vote_clk_enable(struct clk *c)
-{
-	uint32_t vote_regval;
-	uint32_t val;
-	struct vote_clk *vclk = to_local_vote_clk(c);
-
-	vote_regval = readl(vclk->vote_reg);
-	vote_regval |= vclk->en_mask;
-	writel_relaxed(vote_regval, vclk->vote_reg);
-	do {
-		val = readl(vclk->cbcr_reg);
-		val &= BRANCH_CHECK_MASK;
-	}
-	/*  wait until status shows it is enabled */
-	while((val != BRANCH_ON_VAL) && (val != BRANCH_NOC_FSM_ON_VAL));
-
-	return 0;
-}
-
-/* Vote clock disable */
-void clock_lib2_vote_clk_disable(struct clk *c)
-{
-	uint32_t vote_regval;
-	struct vote_clk *vclk = to_local_vote_clk(c);
-
-	vote_regval = readl(vclk->vote_reg);
-	vote_regval &= ~vclk->en_mask;
-    writel_relaxed(vote_regval, vclk->vote_reg);
-}
-
-/* Reset clock */
-static int __clock_lib2_branch_clk_reset(uint32_t bcr_reg, enum clk_reset_action action)
-{
-	uint32_t reg;
-	int ret = 0;
-
-	reg = readl(bcr_reg);
-
-	switch (action) {
-	case CLK_RESET_ASSERT:
-		reg |= BIT(0);
-		break;
-	case CLK_RESET_DEASSERT:
-		reg &= ~BIT(0);
-		break;
-	default:
-		ret = 1;
-	}
-
-	writel(reg, bcr_reg);
-
-	/* Wait for writes to go through */
-	dmb();
-
-	return ret;
-}
-
-int clock_lib2_reset_clk_reset(struct clk *c, enum clk_reset_action action)
-{
-	struct reset_clk *rst = to_reset_clk(c);
-
-	if (!rst)
-		return 0;
-
-	return __clock_lib2_branch_clk_reset(rst->bcr_reg, action);
-}
-
-int clock_lib2_branch_clk_reset(struct clk *c, enum clk_reset_action action)
-{
-	struct branch_clk *bclk = to_branch_clk(c);
-
-	if (!bclk)
-		return 0;
-
-	return __clock_lib2_branch_clk_reset(bclk->bcr_reg, action);
 }

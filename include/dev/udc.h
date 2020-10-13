@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,7 +9,7 @@
  *    notice, this list of conditions and the following disclaimer.
  *  * Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
+ *    the documentation and/or other materials provided with the 
  *    distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -20,7 +19,7 @@
  * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
  * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED 
  * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
@@ -30,13 +29,11 @@
 #ifndef __DEV_UDC_H
 #define __DEV_UDC_H
 
-#include <target.h>
-
 /* USB Device Controller Transfer Request */
 struct udc_request {
 	void *buf;
 	unsigned length;
-	void (*complete)();
+	void (*complete)(struct udc_request *req, unsigned actual, int status);
 	void *context;
 };
 
@@ -79,9 +76,8 @@ struct udc_device {
 	const char *manufacturer;
 	const char *product;
 	const char *serialno;
-	target_usb_iface_t *t_usb_if;
 };
-
+	
 int udc_init(struct udc_device *devinfo);
 int udc_register_gadget(struct udc_gadget *gadget);
 int udc_start(void);
@@ -99,16 +95,12 @@ int udc_stop(void);
 #define GET_INTERFACE        10
 #define SET_INTERFACE        11
 #define SYNCH_FRAME          12
-#define SET_SEL              48
 
 #define TYPE_DEVICE          1
 #define TYPE_CONFIGURATION   2
 #define TYPE_STRING          3
 #define TYPE_INTERFACE       4
 #define TYPE_ENDPOINT        5
-#define TYPE_BOS             15
-#define TYPE_DEVICE_CAP      16
-#define TYPE_SS_EP_COMP      48
 
 #define DEVICE_READ          0x80
 #define DEVICE_WRITE         0x00
@@ -122,10 +114,6 @@ int udc_stop(void);
 #define PORTSC_PTC           (0xF << 16)
 #define PORTSC_PTC_SE0_NAK	 (0x03 << 16)
 #define PORTSC_PTC_TST_PKT   (0x4 << 16)
-
-#define USB_EP_NUM_MASK      0x0f
-#define USB_EP_DIR_MASK      0x80
-#define USB_EP_DIR_IN        0x80
 
 struct setup_packet {
 	unsigned char type;

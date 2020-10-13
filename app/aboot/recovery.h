@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010, The Linux Foundation. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,22 +29,10 @@
 #ifndef _BOOTLOADER_RECOVERY_H
 #define _BOOTLOADER_RECOVERY_H
 
-#define UPDATE_MAGIC         "MSM-RADIO-UPDATE"
-#define UPDATE_MAGIC_SIZE    16
-#define UPDATE_VERSION       0x00010000
-#define FFBM_MODE_BUF_SIZE   8
-#define BOOTSELECT_SIGNATURE ('B' | ('S' << 8) | ('e' << 16) | ('l' << 24))
-#define BOOTSELECT_VERSION   0x00010001
-#define BOOTSELECT_FORMAT    (1 << 31)
-#define BOOTSELECT_FACTORY   (1 << 30)
+#define UPDATE_MAGIC       "MSM-RADIO-UPDATE"
+#define UPDATE_MAGIC_SIZE  16
+#define UPDATE_VERSION     0x00010000
 
-/* bootselect partition format structure */
-struct boot_selection_info {
-	uint32_t signature;                // Contains value BOOTSELECT_SIGNATURE defined above
-	uint32_t version;
-	uint32_t boot_partition_selection; // Decodes which partitions to boot: 0-Windows,1-Android
-	uint32_t state_info;               // Contains factory and format bit as definded above
-};
 
 /* Recovery Message */
 struct recovery_message {
@@ -74,20 +62,15 @@ struct update_header {
 	unsigned fail_bitmap_length;
 };
 
-int write_misc(unsigned page_offset, void *buf, unsigned size);
+
 
 int get_recovery_message(struct recovery_message *out);
 int set_recovery_message(const struct recovery_message *in);
 
+int read_update_header_for_bootloader(struct update_header *header);
+int update_firmware_image (struct update_header *header, char *name);
+
 int recovery_init (void);
-/* This function will look for the ffbm cookie in the misc partition.
- * Upon finding a valid cookie it will return 1 and place the cookie
- * into ffbm.If it does not find a valid cookie it will return 0.If
- * an error is hit it will return -1.If either of these return values
- * is seen the data in ffbm should not be used and should be considered
- * invalid.
- */
-int get_ffbm(char *ffbm, unsigned size);
 
 extern unsigned boot_into_recovery;
 

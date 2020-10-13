@@ -2,8 +2,7 @@
 #
 LOCAL_DIR := $(GET_LOCAL_DIR)
 
-TARGET := apq8064
-
+TARGET := msm8960
 MODULES += app/aboot
 
 ifeq ($(TARGET_BUILD_VARIANT),user)

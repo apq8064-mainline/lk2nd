@@ -37,7 +37,7 @@ LK_TOP_DIR:= .
 BUILDDIR := $(BOOTLOADER_OUT)/build-$(PROJECT)
 OUTBIN := $(BUILDDIR)/lk.bin
 OUTELF := $(BUILDDIR)/lk
-OUTELF_STRIP := $(BUILDDIR)/lk_s.elf
+#OUTELF_STRIP := $(BUILDDIR)/lk_s.elf
 OUTBOOTIMG := $(BUILDDIR)/boot.img
 OUTDTIMG := $(BUILDDIR)/dt.img
 OUTODINTAR := $(BUILDDIR)/odin.tar
@@ -70,8 +70,8 @@ ifeq ($(TARGET_BUILD_VARIANT),user)
 endif
 
 # setup toolchain prefix
-TOOLCHAIN_PREFIX ?= arm-eabi-
-CFLAGS += -fstack-protector-all
+TOOLCHAIN_PREFIX ?= arm-none-eabi-
+CFLAGS += -fno-stack-protector
 CFLAGS += -fno-strict-overflow
 CPPFLAGS := -fno-exceptions -fno-rtti -fno-threadsafe-statics
 #CPPFLAGS += -Weffc++
@@ -82,7 +82,7 @@ CFLAGS += -ffunction-sections -fdata-sections
 LDFLAGS += -gc-sections
 
 # top level rule
-all:: $(OUTBIN) $(OUTELF).lst $(OUTELF).debug.lst $(OUTELF).sym $(OUTELF).size $(OUTELF_STRIP) APPSBOOTHEADER
+all:: $(OUTBIN) $(OUTELF).lst $(OUTELF).debug.lst $(OUTELF).sym $(OUTELF).size $(OUTELF_STRIP) APPSBOOTHEADER 
 
 # the following three object lists are identical except for the ordering
 # which is bootobjs, kobjs, objs

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
- * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,7 +54,6 @@ unsigned int fota_cookie[1];
 static struct ptable flash_ptable;
 unsigned hw_platform = 0;
 unsigned target_msm_id = 0;
-unsigned msm_version = 0;
 
 /* Setting this variable to different values defines the
  * behavior of CE engine:
@@ -75,7 +74,7 @@ int machine_is_evb();
  * this altogether.
  *
  */
-static struct ptentry board_part_list_default[] = {
+static struct ptentry board_part_list[] = {
 	{
 	 .start = 0,
 	 .length = 10 /* In MB */ ,
@@ -113,54 +112,7 @@ static struct ptentry board_part_list_default[] = {
 	 },
 };
 
-/*
- * SKU3 & SKU PVT devices use the same micron NAND device with different density,
- * due to this SKU3 partition creation fails as the number of blocks calculated
- * from flash density is wrong, To avoid this use a different partition table &
- * move the variable length partition to the end, this way kernel will truncate
- * the variable length partition & we need not add target checks in the shared
- * nand driver code.
- */
-
-static struct ptentry board_part_list_sku3[] = {
-	{
-	 .start = 0,
-	 .length = 10 /* In MB */ ,
-	 .name = "boot",
-	 },
-	{
-	 .start = DIFF_START_ADDR,
-	 .length = 253 /* In MB */ ,
-	 .name = "system",
-	 },
-	{
-	 .start = DIFF_START_ADDR,
-	 .length = 80 /* In MB */ ,
-	 .name = "cache",
-	 },
-	{
-	 .start = DIFF_START_ADDR,
-	 .length = 4 /* In MB */ ,
-	 .name = "misc",
-	 },
-	{
-	 .start = DIFF_START_ADDR,
-	 .length = 4 /* In MB */ ,
-	 .name = "persist",
-	 },
-	{
-	 .start = DIFF_START_ADDR,
-	 .length = 10 /* In MB */ ,
-	 .name = "recovery",
-	 },
-	{
-	 .start = DIFF_START_ADDR,
-	 .length = VARIABLE_LENGTH,
-	 .name = "userdata",
-	 },
-};
-
-static int num_parts = sizeof(board_part_list_default) / sizeof(struct ptentry);
+static int num_parts = sizeof(board_part_list) / sizeof(struct ptentry);
 
 void smem_ptable_init(void);
 unsigned smem_get_apps_flash_start(void);
@@ -173,7 +125,6 @@ void target_init(void)
 {
 	unsigned offset;
 	struct flash_info *flash_info;
-	struct ptentry *board_part_list;
 	unsigned total_num_of_blocks;
 	unsigned next_ptr_start_adr = 0;
 	unsigned blocks_per_1MB = 8;	/* Default value of 2k page size on 256MB flash drive */
@@ -184,6 +135,12 @@ void target_init(void)
 #if (!ENABLE_NANDWRITE)
 	keys_init();
 	keypad_init();
+#endif
+
+	/* Display splash screen if enabled */
+#if DISPLAY_SPLASH_SCREEN
+	display_init();
+	dprintf(SPEW, "Diplay initialized\n");
 #endif
 
 	if (target_is_emmc_boot()) {
@@ -211,11 +168,6 @@ void target_init(void)
 
 	total_num_of_blocks = flash_info->num_blocks;
 	blocks_per_1MB = (1 << 20) / (flash_info->block_size);
-
-	if (target_is_sku3())
-		board_part_list = board_part_list_sku3;
-	else
-		board_part_list = board_part_list_default;
 
 	for (i = 0; i < num_parts; i++) {
 		struct ptentry *ptn = &board_part_list[i];
@@ -251,6 +203,7 @@ void target_init(void)
 	ptable_dump(&flash_ptable);
 	flash_set_ptable(&flash_ptable);
 }
+
 void board_info(void)
 {
 	struct smem_board_info_v4 board_info_v4;
@@ -278,8 +231,6 @@ void board_info(void)
 				id = board_info_v4.board_info_v3.hw_platform;
 				target_msm_id =
 				    board_info_v4.board_info_v3.msm_id;
-				msm_version =
-				    board_info_v4.board_info_v3.msm_version;
 			}
 		}
 
@@ -296,9 +247,6 @@ void board_info(void)
 				break;
 			case 0x10:
 				hw_platform = MSM8X25_EVT;
-				break;
-			case 0x11:
-				hw_platform = MSM8X25Q_SKUD;
 				break;
 			case 0xC:
 				hw_platform = MSM8X25_EVB;
@@ -380,13 +328,6 @@ unsigned board_msm_id(void)
 {
 	board_info();
 	return target_msm_id;
-}
-
-unsigned board_msm_version(void)
-{
-	board_info();
-	msm_version = (msm_version & 0xffff0000) >> 16;
-	return msm_version;
 }
 
 crypto_engine_type board_ce_type(void)
@@ -592,20 +533,6 @@ int machine_is_qrd()
 	}
 	return ret;
 }
-int machine_is_skud()
-{
-	int ret = 0;
-	unsigned mach_type = board_machtype();
-
-	switch(mach_type) {
-		case MSM8X25Q_SKUD:
-			ret = 1;
-			break;
-		default:
-			ret = 0;
-	}
-	return ret;
-}
 int machine_is_8x25()
 {
 	int ret = 0;
@@ -617,7 +544,6 @@ int machine_is_8x25()
 		case MSM8X25_EVB:
 		case MSM8X25_EVT:
 		case MSM8X25_QRD7:
-		case MSM8X25Q_SKUD:
 			ret = 1;
 			break;
 		default:
@@ -698,30 +624,4 @@ int target_cont_splash_screen()
 			ret = 0;
 	};
 	return ret;
-}
-
-int target_is_sku3()
-{
-	int ret = 0;
-	unsigned mach_type = 0;
-
-	mach_type = board_machtype();
-
-	switch(mach_type) {
-		case MSM7X27A_QRD3:
-			ret = 1;
-			break;
-		default:
-			ret = 0;
-	};
-	return ret;
-}
-
-/* Function to set the capabilities for the host */
-void target_mmc_caps(struct mmc_host *host)
-{
-	host->caps.ddr_mode = 0;
-	host->caps.hs200_mode = 0;
-	host->caps.bus_width = MMC_BOOT_BUS_WIDTH_4_BIT;
-	host->caps.hs_clk_rate = MMC_CLK_50MHZ;
 }

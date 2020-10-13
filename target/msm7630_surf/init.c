@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
- * Copyright (c) 2009-2011, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2011, 2015 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +41,7 @@
 #include <mmc.h>
 #include <platform/iomap.h>
 #include <platform/machtype.h>
-#if TARGET_USES_RSPIN_LOCK
+#ifdef TARGET_USES_RSPIN_LOCK
 #include <platform/remote_spinlock.h>
 #endif
 #include <platform.h>
@@ -192,7 +192,7 @@ void target_init(void)
 
 	dprintf(INFO, "target_init()\n");
 
-#if TARGET_USES_RSPIN_LOCK
+#ifdef TARGET_USES_RSPIN_LOCK
 	if(remote_spinlock_init(&rlock))
 		dprintf(SPEW,"Failed to Initialize remote spin locks\n");
 #endif
@@ -206,7 +206,7 @@ void target_init(void)
 #if DISPLAY_SPLASH_SCREEN
 	display_init();
 	dprintf(SPEW, "Diplay initialized\n");
-	display_image_on_screen();
+	display_image_on_screen(NULL);
 #endif
 
 	if (target_is_emmc_boot()) {

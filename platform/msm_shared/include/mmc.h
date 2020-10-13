@@ -1,17 +1,17 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *     * Neither the name of The Linux Foundation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of The Linux Foundation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
  * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
@@ -29,15 +29,9 @@
 #ifndef __MMC_H__
 #define __MMC_H__
 
-#if MMC_SDHCI_SUPPORT
-#include "mmc_sdhci.h"
-#include "mmc_wrapper.h"
-#else
 #ifndef MMC_SLOT
 #define MMC_SLOT            0
 #endif
-
-#define BOARD_KERNEL_PAGESIZE                2048
 
 extern unsigned int mmc_boot_mci_base;
 
@@ -86,16 +80,6 @@ extern unsigned int mmc_boot_mci_base;
 #define MMC_BOOT_BUS_WIDTH_1_BIT          0
 #define MMC_BOOT_BUS_WIDTH_4_BIT          2
 #define MMC_BOOT_BUS_WIDTH_8_BIT          3
-
-/* Bus width support for DDR mode */
-#define MMC_DDR_BUS_WIDTH_4_BIT           6
-#define MMC_DDR_BUS_WIDTH_8_BIT           7
-
-/* DDR mode select */
-#define MMC_MCI_MODE_SELECT               14
-#define MMC_MCI_DDR_MODE_EN               0x3
-
-#define MMC_DEVICE_TYPE                   196
 
 #define MMC_BOOT_MCI_ARGUMENT             MMC_BOOT_MCI_REG(0x008)	/* 32 bits */
 
@@ -286,7 +270,6 @@ extern unsigned int mmc_boot_mci_base;
 #define CMD2_ALL_SEND_CID                2
 #define CMD3_SEND_RELATIVE_ADDR          3
 #define CMD4_SET_DSR                     4
-#define CMD5_SLEEP_AWAKE                 5
 #define CMD6_SWITCH_FUNC                 6
 #define ACMD6_SET_BUS_WIDTH              6	/* SD card */
 #define CMD7_SELECT_DESELECT_CARD        7
@@ -426,9 +409,6 @@ extern unsigned int mmc_boot_mci_base;
 #define MMC_BOOT_SD_DEV_READY             0x80000000
 #define MMC_BOOT_SD_SWITCH_HS             0x80FFFFF1
 
-/* Put the card to sleep */
-#define MMC_CARD_SLEEP                    (1 << 15)
-
 /* Data structure definitions */
 struct mmc_boot_command {
 	unsigned int cmd_index;
@@ -447,7 +427,7 @@ struct mmc_boot_command {
 /* CSD Register.
  * Note: not all the fields have been defined here
  */
-struct mmc_csd {
+struct mmc_boot_csd {
 	unsigned int cmmc_structure;
 	unsigned int spec_vers;
 	unsigned int card_cmd_class;
@@ -474,7 +454,7 @@ struct mmc_csd {
 };
 
 /* CID Register */
-struct mmc_cid {
+struct mmc_boot_cid {
 	unsigned int mid;	/* 8 bit manufacturer id */
 	unsigned int oid;	/* 16 bits 2 character ASCII - OEM ID */
 	unsigned char pnm[7];	/* 6 character ASCII -  product name */
@@ -502,7 +482,7 @@ struct mmc_boot_scr {
 #define MMC_BOOT_SCR_BUS_WIDTH_4_BIT     (1<<2)
 };
 
-struct mmc_card {
+struct mmc_boot_card {
 	unsigned int rca;
 	unsigned int ocr;
 	unsigned long long capacity;
@@ -515,34 +495,24 @@ struct mmc_card {
 	unsigned int status;
 #define MMC_BOOT_STATUS_INACTIVE         0
 #define MMC_BOOT_STATUS_ACTIVE           1
-	uint32_t block_size;
 	unsigned int rd_timeout_ns;
 	unsigned int wr_timeout_ns;
 	unsigned int rd_block_len;
 	unsigned int wr_block_len;
 	//unsigned int data_xfer_len;
-	struct mmc_cid cid;
-	struct mmc_csd csd;
+	struct mmc_boot_cid cid;
+	struct mmc_boot_csd csd;
 	struct mmc_boot_scr scr;
 };
 
 #define MMC_BOOT_XFER_MULTI_BLOCK        0
 #define MMC_BOOT_XFER_SINGLE_BLOCK       1
 
-/* Capabilities for the mmc host */
-struct mmc_caps {
-	uint8_t ddr_mode;      /* DDR mode support */
-	uint8_t hs200_mode;    /* HS200 mode support */
-	uint8_t bus_width;     /* bus width */
-	uint32_t hs_clk_rate;  /* Clock rate for high speed mode */
-};
-
-struct mmc_host {
+struct mmc_boot_host {
 	unsigned int mclk_rate;
 	unsigned int ocr;
 	unsigned int cmd_retry;
 	uint32_t mmc_cont_version;
-	struct mmc_caps caps;
 };
 
 /* MACRO used to evoke regcomp */
@@ -553,6 +523,11 @@ struct mmc_host {
             goto errhandle;  \
         } \
     } while(0);
+
+#define GET_LWORD_FROM_BYTE(x)    ((unsigned)*(x) | \
+        ((unsigned)*(x+1) << 8) | \
+        ((unsigned)*(x+2) << 16) | \
+        ((unsigned)*(x+3) << 24))
 
 #define PUT_LWORD_TO_BYTE(x, y)   do{*(x) = y & 0xff;     \
     *(x+1) = (y >> 8) & 0xff;     \
@@ -570,7 +545,6 @@ struct mmc_host {
 #define MAX_FILE_ENTRIES          20
 
 #define MMC_RCA 2
-#define MMC_CARD_RCA_BIT                  16
 
 /* Can be used to unpack array of upto 32 bits data */
 #define UNPACK_BITS(array, start, len, size_of)                               \
@@ -604,21 +578,15 @@ struct mmc_host {
 #define MMC_CLK_25MHZ                 25000000
 #define MMC_CLK_48MHZ                 48000000
 #define MMC_CLK_50MHZ                 49152000
-#define MMC_CLK_96MHZ                 96000000
-#define MMC_CLK_200MHZ                200000000
 
 #define MMC_CLK_ENABLE      1
 #define MMC_CLK_DISABLE     0
 
-/* SDHC mode & core sw reset related macros */
-#define MMC_BOOT_MCI_HC_MODE                       MMC_BOOT_MCI_REG(0x078)
-#define SDHCI_HC_START_BIT                         0x0
-#define SDHCI_HC_WIDTH                             0x1
-
-#define CORE_SW_RST_START                          0x7
-#define CORE_SW_RST_WIDTH                          0x1
-
 unsigned int mmc_boot_main(unsigned char slot, unsigned int base);
+unsigned int mmc_boot_read_from_card(struct mmc_boot_host *host,
+				     struct mmc_boot_card *card,
+				     unsigned long long data_addr,
+				     unsigned int data_len, unsigned int *out);
 unsigned int mmc_write(unsigned long long data_addr,
 		       unsigned int data_len, unsigned int *in);
 
@@ -626,15 +594,18 @@ unsigned int mmc_read(unsigned long long data_addr, unsigned int *out,
 		      unsigned int data_len);
 unsigned mmc_get_psn(void);
 
+unsigned int mmc_boot_write_to_card(struct mmc_boot_host *host,
+				    struct mmc_boot_card *card,
+				    unsigned long long data_addr,
+				    unsigned int data_len, unsigned int *in);
+
 unsigned int mmc_erase_card(unsigned long long data_addr,
 			    unsigned long long data_len);
 
+struct mmc_boot_host *get_mmc_host(void);
+struct mmc_boot_card *get_mmc_card(void);
 void mmc_mclk_reg_wr_delay();
 void mmc_boot_mci_clk_enable();
 void mmc_boot_mci_clk_disable();
-uint8_t card_supports_ddr_mode();
-uint8_t card_supports_hs200_mode();
 uint64_t mmc_get_device_capacity();
-void mmc_put_card_to_sleep(void);
-#endif
 #endif

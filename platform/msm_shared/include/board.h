@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -9,7 +9,7 @@
  *       copyright notice, this list of conditions and the following
  *       disclaimer in the documentation and/or other materials provided
  *       with the distribution.
- *     * Neither the name of The Linux Fundation, Inc. nor the names of its
+ *     * Neither the name of The Linux Foundation nor the names of its
  *       contributors may be used to endorse or promote products derived
  *       from this software without specific prior written permission.
  *
@@ -30,28 +30,21 @@
 #ifndef __BOARD_H
 #define __BOARD_H
 
-#include <smem.h>
-
+#define BOARD_SOC_VERSION1 0x10000
+#define BOARD_SOC_VERSION2 0x20000
+#define BOARD_SOC_VERSION2P5 0x30000
 #define LINUX_MACHTYPE_UNKNOWN 0
-#define BOARD_SOC_VERSION2     0x20000
-#define MAX_PMIC_DEVICES       SMEM_MAX_PMIC_DEVICES
-
-struct board_pmic_data {
-	uint32_t pmic_type;
-	uint32_t pmic_version;
-	uint32_t pmic_target;
-};
 
 struct board_data {
 	uint32_t platform;
-	uint32_t foundry_id;
-	uint32_t platform_version;
+	uint32_t msm_version;
 	uint32_t platform_hw;
 	uint32_t platform_subtype;
+	uint32_t platform_version;
 	uint32_t target;
 	uint32_t baseband;
-	struct board_pmic_data pmic_info[MAX_PMIC_DEVICES];
-	uint32_t platform_hlos_subtype;
+	uint32_t pmic_type;
+	uint32_t pmic_version;
 };
 
 void board_init();
@@ -61,26 +54,8 @@ uint32_t board_platform_id();
 uint32_t board_target_id();
 uint32_t board_baseband();
 uint32_t board_hardware_id();
-uint8_t board_pmic_info(struct board_pmic_data *, uint8_t num_ent);
-uint32_t board_soc_version();
-uint32_t board_hardware_subtype(void);
-uint32_t board_get_ddr_subtype(void);
-uint32_t board_hlos_subtype(void);
-uint32_t board_pmic_target(uint8_t num_ent);
-
-/* DDR Subtype Macros
- * Determine the DDR Size on the device and define
- * the below subtype enums based on the DDR size.
- * These defines are matched with that of the DT
- * subtype
- */
-
-#define MB             (1024 * 1024)
-#define DDR_512MB      (512 * MB)
-
-enum subtype_ddr {
-       SUBTYPE_512MB = 1,
-};
-
-uint32_t board_foundry_id(void);
+uint32_t board_pmic_type();
+uint32_t board_pmic_ver();
+uint32_t board_platform_ver();
+uint32_t board_msm_version();
 #endif

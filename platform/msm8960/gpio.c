@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -56,6 +56,12 @@ void gpio_set(uint32_t gpio, uint32_t dir)
 	return;
 }
 
+uint32_t gpio_get(uint32_t gpio)
+{
+	unsigned int *addr = (unsigned int *)GPIO_IN_OUT_ADDR(gpio);
+	return readl(addr);
+}
+
 /* TODO: this and other code below in this file should ideally by in target dir.
  * keeping it here for this brigup.
  */
@@ -82,7 +88,8 @@ void gpio_config_uart_dm(uint8_t id)
 	}
 	else if((board_platform_id() == APQ8064) ||
 			(board_platform_id() == APQ8064AA) ||
-			(board_platform_id() == APQ8064AB))
+			(board_platform_id() == APQ8064AB) ||
+			(board_platform_id() == APQ8064AU))
 	{
 		switch (id) {
 
@@ -94,17 +101,22 @@ void gpio_config_uart_dm(uint8_t id)
 			gpio_tlmm_config(18, 1, GPIO_OUTPUT, GPIO_NO_PULL,
 							 GPIO_8MA, GPIO_DISABLE);
 			break;
-
-		case GSBI_ID_2:
+		case GSBI_ID_3:
 			/* configure rx gpio */
-			gpio_tlmm_config(22, 1, GPIO_INPUT, GPIO_NO_PULL,
-						        GPIO_8MA, GPIO_DISABLE);
+			gpio_tlmm_config(7, 1, GPIO_INPUT, GPIO_NO_PULL,
+					GPIO_8MA, GPIO_DISABLE);
 			/* configure tx gpio */
-			gpio_tlmm_config(23, 1, GPIO_OUTPUT, GPIO_NO_PULL,
-						        GPIO_8MA, GPIO_DISABLE);
+			gpio_tlmm_config(6, 1, GPIO_OUTPUT, GPIO_NO_PULL,
+					GPIO_8MA, GPIO_DISABLE);
 			break;
-
-
+		case GSBI_ID_4:
+			/* configure rx gpio */
+			gpio_tlmm_config(11, 1, GPIO_INPUT, GPIO_NO_PULL,
+							 GPIO_8MA, GPIO_DISABLE);
+			/* configure tx gpio */
+			gpio_tlmm_config(10, 1, GPIO_OUTPUT, GPIO_NO_PULL,
+							 GPIO_8MA, GPIO_DISABLE);
+			break;
 		case GSBI_ID_7:
 			/* configure rx gpio */
 			gpio_tlmm_config(83, 1, GPIO_INPUT, GPIO_NO_PULL,
@@ -253,8 +265,11 @@ void msm8930_keypad_gpio_init()
 	int i = 0;
 	int num = 0;
 	struct pm8xxx_gpio_init *gpio_array;
+	uint32_t pmic_type;
 
-	if (platform_pmic_type(PMIC_IS_PM8917))
+	pmic_type = board_pmic_type();
+
+	if (pmic_type == PMIC_IS_PM8917)
 	{
 		num = ARRAY_SIZE(pm8917_keypad_gpios);
 		gpio_array = pm8917_keypad_gpios;
@@ -277,8 +292,11 @@ void apq8064_keypad_gpio_init()
 	int i = 0;
 	int num = 0;
 	struct pm8xxx_gpio_init *gpio_array;
+	uint32_t pmic_type;
 
-	if (platform_pmic_type(PMIC_IS_PM8917))
+	pmic_type = board_pmic_type();
+
+	if (pmic_type == PMIC_IS_PM8917)
 	{
 		num = ARRAY_SIZE(pm8917_keypad_gpios_apq);
 		gpio_array = pm8917_keypad_gpios_apq;
@@ -332,4 +350,25 @@ void apq8064_display_gpio_init()
 			pm8921_gpio_config(pm8921_display_gpios_apq[i].gpio,
 				&(pm8921_display_gpios_apq[i].config));
 		}
+}
+
+void gpio_config_i2c(uint8_t id)
+{
+	switch (id) {
+	case GSBI_ID_1:
+		writel(0x2, GSBIn_UART_I2C_SEL(0));
+		gpio_tlmm_config(0, 4, GPIO_ENABLE, GPIO_PULL_UP, GPIO_2MA,
+								GPIO_ENABLE);
+		gpio_tlmm_config(1, 4, GPIO_OUTPUT, GPIO_PULL_UP,
+		GPIO_2MA, GPIO_ENABLE);
+		break;
+	case GSBI_ID_3:
+		gpio_tlmm_config(9, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_16MA,
+								GPIO_ENABLE);
+		gpio_tlmm_config(8, 1, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_16MA,
+								GPIO_ENABLE);
+		break;
+	default:
+		dprintf(CRITICAL, "gpio_config_i2c(%hhu)\n", id);
+	}
 }

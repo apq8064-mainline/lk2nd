@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -9,7 +9,7 @@
  *       copyright notice, this list of conditions and the following
  *       disclaimer in the documentation and/or other materials provided
  *       with the distribution.
- *     * Neither the name of The Linux Foundation, Inc. nor the names of its
+ *     * Neither the name of The Linux Foundation nor the names of its
  *       contributors may be used to endorse or promote products derived
  *       from this software without specific prior written permission.
  *
@@ -41,7 +41,8 @@ extern int mipi_renesas_panel_dsi_config(int);
 extern int mipi_nt35510_panel_dsi_config(int);
 extern int lcdc_truly_panel_on(int);
 
-static int msm7627a_mdp_clock_init(int enable)
+static int msm7627a_mdp_clock_init(int enable,
+				struct msm_panel_info *pinfo)
 {
 	int ret = 0;
 	unsigned rate = 0;
@@ -55,7 +56,8 @@ static int msm7627a_mdp_clock_init(int enable)
 	return ret;
 }
 
-static int msm7627a_lcdc_clock_init(int enable)
+static int msm7627a_lcdc_clock_init(int enable,
+				struct msm_panel_info *pinfo)
 {
 	int ret = 0;
 	unsigned rate = panel.panel_info.clk_rate;
@@ -69,7 +71,7 @@ static int msm7627a_lcdc_clock_init(int enable)
 	}
 	return ret;
 }
-void target_display_init(const char *panel_name)
+void display_init(void)
 {
 	unsigned mach_type;
 	mach_type = board_machtype();
@@ -155,9 +157,9 @@ void target_display_init(const char *panel_name)
 	display_enabled = 1;
 }
 
-void target_display_shutdown(void)
+void display_shutdown(void)
 {
 	dprintf(SPEW, "display_shutdown()\n");
-	if (display_enabled)
+	if (display_enabled && !target_cont_splash_screen())
 		msm_display_off();
 }

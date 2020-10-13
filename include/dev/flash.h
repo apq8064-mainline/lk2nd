@@ -32,11 +32,6 @@
 
 #include <lib/ptable.h>
 
-enum nand_ecc_width
-{
-	NAND_WITH_4_BIT_ECC,
-	NAND_WITH_8_BIT_ECC,
-};
 
 struct flash_info {
 	unsigned id;
@@ -47,16 +42,6 @@ struct flash_info {
 	unsigned block_size;
 	unsigned spare_size;
 	unsigned num_blocks;
-	enum nand_ecc_width ecc_width;
-	unsigned num_pages_per_blk;
-	unsigned num_pages_per_blk_mask;
-	unsigned widebus;
-	unsigned density;
-	unsigned cw_size;
-	unsigned cws_per_page;
-	unsigned bad_blk_loc;
-	unsigned blksize;
-	unsigned dev_cfg;
 };
 
 void flash_init(void);
@@ -68,18 +53,15 @@ struct flash_info *flash_get_info(void);
 int flash_erase(struct ptentry *ptn);
 int flash_read_ext(struct ptentry *ptn, unsigned extra_per_page,
 		   unsigned offset, void *data, unsigned bytes);
-int flash_write(struct ptentry *ptn, unsigned write_extra_bytes, const void *data,
+int flash_write(struct ptentry *ptn, unsigned extra_per_page, const void *data,
 		unsigned bytes);
+
 static inline int flash_read(struct ptentry *ptn, unsigned offset, void *data,
 			     unsigned bytes)
 {
 	return flash_read_ext(ptn, 0, offset, data, bytes);
 }
-
-unsigned flash_num_pages_per_blk(void);
 unsigned flash_page_size(void);
-unsigned flash_block_size(void);
-unsigned flash_spare_size(void);
 int flash_ecc_bch_enabled(void);
 
 

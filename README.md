@@ -40,6 +40,7 @@ page on the EFIDroid wiki for an exact mapping of LK targets to SoCs.
 - Samsung Galaxy J7 (2015) - SM-J7008, SM-J700P
 - Samsung Galaxy On7 (2015) - SM-G6000
 - Samsung Galaxy S4 Mini Value Edition - GT-I9195I
+- Samsung Galaxy S4 - GT-I9505 (untested)
 - Samsung Galaxy Tab 4 10.1 (2015) - SM-T533
 - Samsung Galaxy Tab A 8.0 LTE (2015) - SM-T357W
 - Samsung Galaxy Tab A 9.7 WiFi (2015) - SM-T550
@@ -91,21 +92,21 @@ Replace `TOOLCHAIN_PREFIX` with the path to your tool chain.
 `lk2nd.img` is built and placed into `build-msm8916-secondary/lk2nd.img`.
 
 ## Porting
-### To other MSM8916 devices
-- Add a simple device tree to `dts/`. You just need `model` and the
-  `qcom,msm-id`/`qcom,board-id` from downstream.
+### To other MSM8960 devices
+- Just compile lk2nd?
+- TODO: Document properly
 
 ### To other SoCs
 Qualcomm maintains separate branches for various groups of SoCs. The branches can
 be seen on the [Chipsets](https://github.com/efidroid/projectmanagement/wiki/%5BReference%5D-Chipsets)
-page on the EFIDroid wiki. This version of lk2nd is based on the LA.BR branch for
-MSM8916. There is a [fork for MSM8953 based on the LA.UM branch](https://github.com/msm8953-mainline/lk2nd).
+page on the EFIDroid wiki. This version of lk2nd is based on the LA.AF branch for
+MSM8960. There is a [fork for MSM8953 based on the LA.UM branch](https://github.com/msm8953-mainline/lk2nd).
 
 The bootloader will work best when you use the correct branch for your device.
 Older platforms are usually kept around by Qualcomm but barely tested and may
 not work, or not even compile.
 
-However, if make files for your SoC are present in this version or the MSM8953 fork
+However, if make files for your SoC are present in this version, the original or the MSM8953 fork
 you can try to enable it and see if it works well enough for you. Otherwise you
 would need to go through the Git history and pick the relevant commits to another
 branch from https://source.codeaurora.org/quic/la/kernel/lk/.
@@ -119,4 +120,4 @@ To enable support for a SoC that is already present in this repository:
 Good luck!
 
 ## Contact
-Ping `minecrell`/`Mis012` on [`#postmarketos-mainline`](https://wiki.postmarketos.org/wiki/Matrix_and_IRC).
+Ping `minecrell`/`Mis012`/`CircuitRCAY` on [`#postmarketos-mainline`](https://wiki.postmarketos.org/wiki/Matrix_and_IRC).

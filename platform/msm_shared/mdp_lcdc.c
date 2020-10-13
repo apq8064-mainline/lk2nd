@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2015 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,6 +50,10 @@ int mdp_lcdc_config(struct msm_panel_info *pinfo,
 	int active_x, active_y;
 	int active_hstart_x, active_hend_x;
 	int active_vstart, active_vend;
+	int ctrl_polarity;
+	int hsync_polarity;
+	int vsync_polarity;
+	int data_en_polarity;
 	int mdp_rev;
 
 	struct lcdc_panel_info *lcdc = NULL;
@@ -85,22 +89,23 @@ int mdp_lcdc_config(struct msm_panel_info *pinfo,
 	/* Start XY coordinates */
 	writel(0, MDP_DMA_P_OUT_XY);
 
-	if (fb->bpp == 16) {
-		writel(DMA_PACK_ALIGN_LSB | DMA_PACK_PATTERN_RGB |
+	if ((fb->bpp == 16) && (fb->format == FB_FORMAT_RGB565)) {
+		writel(DMA_PACK_ALIGN_LSB | DMA_PACK_PATTERN_BGR |
 			DMA_DITHER_EN |	DMA_OUT_SEL_LCDC |
 			DMA_IBUF_FORMAT_RGB565 | DMA_DSTC0G_6BITS |
 			DMA_DSTC1B_6BITS | DMA_DSTC2R_6BITS,
 			MDP_DMA_P_CONFIG);
 		mdp_rgb_format = MDP_RGB_565_FORMAT;
-	} else if (fb->bpp == 24) {
-		writel(DMA_PACK_ALIGN_LSB | DMA_PACK_PATTERN_RGB |
+	} else if ((fb->bpp == 24) && (fb->format == FB_FORMAT_RGB888)) {
+		writel(DMA_PACK_ALIGN_LSB | DMA_PACK_PATTERN_BGR |
 			DMA_DITHER_EN | DMA_OUT_SEL_LCDC |
 			DMA_IBUF_FORMAT_RGB888 | DMA_DSTC0G_8BITS |
 			DMA_DSTC1B_8BITS | DMA_DSTC2R_8BITS,
 			MDP_DMA_P_CONFIG);
 		mdp_rgb_format = MDP_RGB_888_FORMAT;
 	} else {
-		dprintf(CRITICAL, "Unsupported bpp detected!\n");
+		dprintf(CRITICAL, "Unsupported LVDS bpp: %d or format: %d detected!\n",
+							     fb->bpp, fb->format);
 		return ERR_INVALID_ARGS;
 	}
 
@@ -137,6 +142,17 @@ int mdp_lcdc_config(struct msm_panel_info *pinfo,
 			+ lcdc->hsync_skew;
 	active_vend = active_vstart + (fb->height * hsync_period) - 1;
 
+	if (lcdc->is_sync_active_high) {
+		hsync_polarity = 0;
+		vsync_polarity = 0;
+	} else {
+		hsync_polarity = 1;
+		vsync_polarity = 1;
+	}
+	data_en_polarity = lcdc->is_den_active_high ? 0 : 1;
+	ctrl_polarity =
+	    (data_en_polarity << 2) | (vsync_polarity << 1) | (hsync_polarity);
+
 
 	/* LCDC specific initalizations */
 	writel((hsync_period << 16) | lcdc->h_pulse_width,
@@ -159,7 +175,7 @@ int mdp_lcdc_config(struct msm_panel_info *pinfo,
 		writel(0xff, MDP_LCDC_UNDERFLOW_CTL);
 		writel(lcdc->hsync_skew,
 				MDP_LCDC_HSYNC_SKEW);
-		writel(0x3, MDP_LCDC_CTL_POLARITY);
+		writel(ctrl_polarity, MDP_LCDC_CTL_POLARITY);
 		writel(0, MDP_LCDC_ACTIVE_HCTL);
 		writel(0, MDP_LCDC_ACTIVE_V_START);
 		writel(0, MDP_LCDC_ACTIVE_V_END);
@@ -173,6 +189,7 @@ int mdp_lcdc_config(struct msm_panel_info *pinfo,
 		writel(0x00, MDP_RGB1_CONSTANT_COLOR);
 		writel(mdp_rgb_format, MDP_RGB1_SRC_FORMAT);
 		writel(0x1, MDP_OVERLAYPROC0_CFG);
+		writel(mdp_rgb_size, MDP_OVERLAYPROC0_OUT_SIZE);
 		if (fb->bpp == 16)
 			writel(0x1, MDP_OVERLAYPROC0_OPMODE);
 		else if (fb->bpp == 24)
@@ -199,7 +216,6 @@ int mdp_lcdc_on()
 
 int mdp_lcdc_off()
 {
-	if(!target_cont_splash_screen())
-		writel(0x0, MDP_LCDC_EN);
+	writel(0x0, MDP_LCDC_EN);
 	return NO_ERROR;
 }

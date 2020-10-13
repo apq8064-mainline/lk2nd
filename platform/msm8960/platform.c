@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,7 @@
 #include <mmu.h>
 #include <arch/arm/mmu.h>
 #include <board.h>
+#include <target/board.h>
 
 extern void platform_init_timer(void);
 extern void platform_panel_backlight_on(void);
@@ -104,7 +105,13 @@ void platform_uninit(void)
 	display_shutdown();
 #endif
 
+	if (MPLATFORM()) {
+		/* set GPIO_84 to LOW when leave LK */
+		gpio_set(84, 1);
+	}
 	platform_uninit_timer();
+	/* Set the BOOT_DONE flag in PM8921 */
+	pm8921_boot_done();
 }
 
 /* Setup memory for this platform */
@@ -145,24 +152,4 @@ void platform_init_timer(void)
 uint32_t platform_tick_rate(void)
 {
 	return ticks_per_sec;
-}
-
-/* Return true if the pmic type matches */
-uint8_t platform_pmic_type(uint32_t pmic_type)
-{
-	uint8_t ret = 0;
-	uint8_t i = 0;
-	uint8_t num_ent = 0;
-	struct board_pmic_data pmic_info[SMEM_V7_SMEM_MAX_PMIC_DEVICES];
-
-	num_ent = board_pmic_info(&pmic_info, SMEM_V7_SMEM_MAX_PMIC_DEVICES);
-
-	for(i = 0; i < num_ent; i++) {
-		if (pmic_info[i].pmic_type == pmic_type) {
-			ret = 1;
-			break;
-		}
-	}
-
-	return ret;
 }

@@ -2,7 +2,7 @@
  * Copyright (c) 2008, Google Inc.
  * All rights reserved.
  *
- * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -181,11 +181,6 @@ struct udc_endpoint *_udc_endpoint_alloc(unsigned num, unsigned in,
 
 	ept->next = ept_list;
 	ept_list = ept;
-
-	arch_clean_invalidate_cache_range((addr_t) ept,
-					  sizeof(struct udc_endpoint));
-	arch_clean_invalidate_cache_range((addr_t) ept->head,
-					  sizeof(struct ept_queue_head));
 
 	DBG("ept%d %s @%p/%p max=%d bit=%x\n",
 	    num, in ? "in" : "out", ept, ept->head, max_pkt, ept->bit);
@@ -380,7 +375,7 @@ static void handle_ept_complete(struct udc_endpoint *ept)
 	struct ept_queue_item *item;
 	unsigned actual, total_len;
 	int status, len;
-	struct usb_request *req=NULL;
+	struct usb_request *req;
 	void *buf;
 
 	DBG("ept%d %s complete req=%p\n",
@@ -388,13 +383,9 @@ static void handle_ept_complete(struct udc_endpoint *ept)
 
 	arch_invalidate_cache_range((addr_t) ept,
 					  sizeof(struct udc_endpoint));
-
-	if(ept->req)
-	{
-		req = VA(ept->req);
-		arch_invalidate_cache_range((addr_t) ept->req,
-						sizeof(struct usb_request));
-	}
+	req = VA(ept->req);
+	arch_invalidate_cache_range((addr_t) ept->req,
+					  sizeof(struct usb_request));
 
 	if (req) {
 		item = VA(req->item);
@@ -487,7 +478,7 @@ static struct udc_endpoint *ep0in, *ep0out;
 static struct udc_request *ep0req;
 
 static void
-ep0_setup_ack_complete()
+ep0_setup_ack_complete(struct udc_endpoint *ep, struct usb_request *req)
 {
 	uint32_t mode;
 
@@ -531,8 +522,7 @@ static void setup_tx(void *buf, unsigned len)
 {
 	DBG("setup_tx %p %d\n", buf, len);
 	memcpy(ep0req->buf, buf, len);
-	ep0req->buf = (void *)PA((addr_t)ep0req->buf);
-	arch_clean_invalidate_cache_range((addr_t)ep0req->buf, len);
+	ep0req->buf = PA((addr_t)ep0req->buf);
 	ep0req->complete = ep0in_complete;
 	ep0req->length = len;
 	udc_request_queue(ep0in, ep0req);
@@ -549,7 +539,6 @@ static void handle_setup(struct udc_endpoint *ept)
 	arch_clean_invalidate_cache_range((addr_t) ept->head->setup_data,
 					  sizeof(struct ept_queue_head));
 	memcpy(&s, ept->head->setup_data, sizeof(s));
-	arch_clean_invalidate_cache_range((addr_t)&s, sizeof(s));
 	writel(ept->bit, USB_ENDPTSETUPSTAT);
 
 	DBG("handle_setup type=0x%02x req=0x%02x val=%d idx=%d len=%d (%s)\n",
@@ -568,23 +557,9 @@ static void handle_setup(struct udc_endpoint *ept)
 	case SETUP(DEVICE_READ, GET_DESCRIPTOR):
 		{
 			struct udc_descriptor *desc;
-			unsigned char* data = NULL;
-			unsigned n;
 			/* usb_highspeed? */
 			for (desc = desc_list; desc; desc = desc->next) {
 				if (desc->tag == s.value) {
-					/*Check for configuration type of descriptor*/
-					if (desc->tag == (TYPE_CONFIGURATION << 8)) {
-						data = desc->data;
-						data+= 9; /* skip config desc */
-						data+= 9; /* skip interface desc */
-						/* taking the max packet size based on the USB host speed connected */
-						for (n = 0; n < 2; n++) {
-							data[4] = usb_highspeed ? 512:64;
-							data[5] = (usb_highspeed ? 512:64)>>8;
-							data += 7;
-						}
-					}
 					unsigned len = desc->len;
 					if (len > s.length)
 						len = s.length;
@@ -694,7 +669,7 @@ int udc_init(struct udc_device *dev)
 	hsusb_clock_init();
 
 	/* RESET */
-	writel(0x00080002, USB_USBCMD);
+	writel(0x00080000, USB_USBCMD);
 
 	thread_sleep(20);
 
@@ -900,7 +875,11 @@ int udc_start(void)
 	}
 
 	/* create our device descriptor */
-	desc = udc_descriptor_alloc(TYPE_DEVICE, 0, 18);
+	if(!(desc = udc_descriptor_alloc(TYPE_DEVICE, 0, 18)))
+	{
+		dprintf(CRITICAL, "Failed to allocate device descriptor\n");
+		ASSERT(0);
+	}
 	data = desc->data;
 	data[2] = 0x00;		/* usb spec minor rev */
 	data[3] = 0x02;		/* usb spec major rev */

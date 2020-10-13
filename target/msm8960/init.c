@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2009, Google Inc.
  * All rights reserved.
- * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,12 +70,65 @@ static pm8921_dev_t pmic;
 static crypto_engine_type platform_ce_type = CRYPTO_ENGINE_TYPE_SW;
 
 static void target_uart_init(void);
+#define DELAY 1
+void qca6174_init()
+{
+	dprintf(CRITICAL, "%s SDC4 before enabling GPIO 21....\n", __func__);
+	mdelay(DELAY);
+	gpio_tlmm_config(64, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA, GPIO_ENABLE);
+	/* Output HIGH */
+	gpio_set(64, 2);
+
+	if (!MPLATFORM()) {
+		//GPIO 21  WLAN_EN
+		mdelay(DELAY);
+		gpio_tlmm_config(21, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_6MA, GPIO_ENABLE);
+		/* Output HIGH */
+		gpio_set(21, 0);
+		mdelay(DELAY);
+		gpio_set(21, 2);
+		//GPIO 17  BT_EN
+		gpio_tlmm_config(17, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_6MA, GPIO_ENABLE);
+		/* Output HIGH */
+		gpio_set(17, 0);
+		mdelay(DELAY);
+		gpio_set(17, 2);
+	}
+}
+
+static void mobis_qca6574_init(void)
+{
+	struct pm8921_gpio mobis_qca_param = {
+		.direction = PM_GPIO_DIR_OUT,
+		.output_buffer = 0,
+		.output_value = 1,
+		.pull = PM_GPIO_PULL_NO,
+		.vin_sel = 2,//1.8V PM_GPIO_VIN_S4
+		.out_strength = PM_GPIO_STRENGTH_HIGH,
+		.function = PM_GPIO_FUNC_NORMAL, //0
+		.inv_int_pol = 1,
+		.disable_pin = 0,
+	};
+	// PMGPIO 43 WLAN_EN
+	pm8921_gpio_config(PM_GPIO(43), &mobis_qca_param);
+	// PMGPIO 44 BT_EN
+	pm8921_gpio_config(PM_GPIO(44), &mobis_qca_param);
+}
 
 void target_early_init(void)
 {
 #if WITH_DEBUG_UART
 	target_uart_init();
 #endif
+
+	if (MPLATFORM()) {
+		// request GPIO_84 for debug boot up time
+		gpio_tlmm_config(84, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA, GPIO_ENABLE);
+		// set GPIO_84 to HIGH when enter LK
+		gpio_set(84, 2);
+	}
+
+	qca6174_init(); //Enable qca6174 SDC4
 }
 
 void shutdown_device(void)
@@ -95,14 +148,36 @@ void target_init(void)
 	unsigned base_addr;
 	unsigned char slot;
 	unsigned platform_id = board_platform_id();
+	int rc;
+	struct pm8921_gpio atmel_fw = {
+		.direction = PM_GPIO_DIR_OUT,
+		.output_buffer = 0,
+		.output_value = 1,
+		.pull = PM_GPIO_PULL_NO,
+		.vin_sel = 2,
+		.out_strength = PM_GPIO_STRENGTH_HIGH,
+		.function = PM_GPIO_FUNC_1,
+		.inv_int_pol = 0,
+		.disable_pin = 0,
+	};
 
 	dprintf(INFO, "target_init()\n");
+	dprintf(INFO, "board platform id is 0x%x\n",  board_platform_id());
+	dprintf(INFO, "board platform verson is 0x%x\n",  board_platform_ver());
 
 	/* Initialize PMIC driver */
 	pmic.read = (pm8921_read_func) & pa1_ssbi2_read_bytes;
 	pmic.write = (pm8921_write_func) & pa1_ssbi2_write_bytes;
 
 	pm8921_init(&pmic);
+	rc = pm8921_gpio_config(PM_GPIO(28), &atmel_fw);
+	if (rc)
+	{
+	dprintf(CRITICAL, "FAIL pm8921_gpio_config() 28: rc=%d.\n", rc);
+	}
+
+	if (MPLATFORM())
+		mobis_qca6574_init();
 
 	/* Keypad init */
 	keys_init();
@@ -136,21 +211,19 @@ void target_init(void)
 	case MPQ8064:
 	case APQ8064AA:
 	case APQ8064AB:
+	case APQ8064AU:
+		if (MPLATFORM()) {
+			// Debug for M-Plat
+			gpio_tlmm_config(56, 2, GPIO_INPUT, GPIO_NO_PULL,
+							GPIO_8MA, GPIO_DISABLE);
+		}
 		apq8064_keypad_init();
 		break;
 	default:
 		dprintf(CRITICAL,"Keyboard is not supported for platform: %d\n",platform_id);
 	};
 
-	if ((platform_id == MSM8960) || (platform_id == MSM8960AB) ||
-		(platform_id == APQ8060AB) || (platform_id == MSM8260AB) ||
-		(platform_id == MSM8660AB) || (platform_id == MSM8660A) ||
-		(platform_id == MSM8260A) || (platform_id == APQ8060A) ||
-		(platform_id == APQ8064) || (platform_id == APQ8064AA) ||
-		(platform_id == APQ8064AB))
-		/* Enable Hardware CE */
-		platform_ce_type = CRYPTO_ENGINE_TYPE_HW;
-
+	/* Need to initialize before splash screen init if splash is being read from emmc*/
 	/* Trying Slot 1 first */
 	slot = 1;
 	base_addr = mmc_sdc_base[slot - 1];
@@ -163,6 +236,22 @@ void target_init(void)
 			ASSERT(0);
 		}
 	}
+
+	/* Display splash screen if enabled */
+#if DISPLAY_SPLASH_SCREEN
+	display_init();
+	dprintf(SPEW, "Diplay initialized\n");
+#endif
+
+	if ((platform_id == MSM8960) || (platform_id == MSM8960AB) ||
+		(platform_id == APQ8060AB) || (platform_id == MSM8260AB) ||
+		(platform_id == MSM8660AB) || (platform_id == MSM8660A) ||
+		(platform_id == MSM8260A) || (platform_id == APQ8060A) ||
+		(platform_id == APQ8064) || (platform_id == APQ8064AA) ||
+		(platform_id == APQ8064AB)|| (platform_id == APQ8064AU))
+		/* Enable Hardware CE */
+		platform_ce_type = CRYPTO_ENGINE_TYPE_HW;
+
 }
 
 unsigned board_machtype(void)
@@ -293,19 +382,20 @@ void target_uart_init(void)
 		break;
 
 	case LINUX_MACHTYPE_8064_CDP:
+	case LINUX_MACHTYPE_8064_ADP_2:
+	case LINUX_MACHTYPE_8064_ADP_2_ES2:
+	case LINUX_MACHTYPE_8064_ADP_2_ES2P5:
 	case LINUX_MACHTYPE_8064_MTP:
 	case LINUX_MACHTYPE_8064_LIQUID:
-		uart_dm_init(7, 0x16600000, 0x16640000);
-		break;
-
-	case LINUX_MACHTYPE_8064_EP:
-		uart_dm_init(2, 0x12480000, 0x12490000);
+		if (MPLATFORM())
+			uart_dm_init(1, 0x12440000, 0x12450000);
+		else
+			uart_dm_init(3, 0x16200000, 0x16240000);
 		break;
 
 	case LINUX_MACHTYPE_8064_MPQ_CDP:
 	case LINUX_MACHTYPE_8064_MPQ_HRD:
 	case LINUX_MACHTYPE_8064_MPQ_DTV:
-	case LINUX_MACHTYPE_8064_MPQ_DMA:
 		uart_dm_init(5, 0x1A200000, 0x1A240000);
 		break;
 
@@ -327,9 +417,11 @@ void target_detect(struct board_data *board)
 	uint32_t platform;
 	uint32_t platform_hw;
 	uint32_t target_id;
+	uint32_t msm_version;
 
 	platform = board->platform;
 	platform_hw = board->platform_hw;
+	msm_version = board->msm_version;
 
 	/* Detect the board we are running on */
 	if ((platform == MSM8960) || (platform == MSM8960AB) ||
@@ -399,14 +491,12 @@ void target_detect(struct board_data *board)
 		case HW_PLATFORM_DTV:
 			target_id = LINUX_MACHTYPE_8064_MPQ_DTV;
 			break;
-		case HW_PLATFORM_DMA:
-			target_id = LINUX_MACHTYPE_8064_MPQ_DMA;
-			break;
 		default:
 			target_id = LINUX_MACHTYPE_8064_MPQ_CDP;
 		}
 	} else if ((platform == APQ8064) || (platform == APQ8064AA)
-					 || (platform == APQ8064AB)) {
+					 || (platform == APQ8064AB)
+					 || (platform == APQ8064AU)) {
 		switch (platform_hw) {
 		case HW_PLATFORM_SURF:
 			target_id = LINUX_MACHTYPE_8064_CDP;
@@ -417,8 +507,18 @@ void target_detect(struct board_data *board)
 		case HW_PLATFORM_LIQUID:
 			target_id = LINUX_MACHTYPE_8064_LIQUID;
 			break;
-		case HW_PLATFORM_BTS:
-			target_id = LINUX_MACHTYPE_8064_EP;
+		case HW_PLATFORM_OEM:
+			switch(msm_version){
+			case BOARD_SOC_VERSION1:
+				target_id = LINUX_MACHTYPE_8064_ADP_2;
+				break;
+			case BOARD_SOC_VERSION2:
+				target_id = LINUX_MACHTYPE_8064_ADP_2_ES2;
+				break;
+			case BOARD_SOC_VERSION2P5:
+				target_id = LINUX_MACHTYPE_8064_ADP_2_ES2P5;
+				break;
+			}
 			break;
 		default:
 			target_id = LINUX_MACHTYPE_8064_CDP;
@@ -464,6 +564,9 @@ void target_baseband_detect(struct board_data *board)
 		case APQ8030AA:
 			baseband = BASEBAND_APQ;
 			break;
+		case APQ8064AU:
+			baseband = BASEBAND_AUTO;
+			break;
 		default:
 			baseband = BASEBAND_MSM;
 		};
@@ -490,11 +593,32 @@ int target_cont_splash_screen()
 
 void apq8064_ext_3p3V_enable()
 {
-	/* Configure GPIO for output */
-	gpio_tlmm_config(77, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA, GPIO_ENABLE);
+	int target_id = board_target_id();
+	bool config = false;
 
-	/* Output High */
-	gpio_set(77, 2);
+	switch (target_id) {
+	case LINUX_MACHTYPE_8064_ADP_2:
+	case LINUX_MACHTYPE_8064_ADP_2_ES2:
+	case LINUX_MACHTYPE_8064_ADP_2_ES2P5:
+		if (MPLATFORM()) {
+			config = true;
+		}
+		break;
+	case LINUX_MACHTYPE_8064_MPQ_CDP:
+	case LINUX_MACHTYPE_8064_MPQ_HRD:
+	case LINUX_MACHTYPE_8064_MPQ_DTV:
+		config = true;
+		break;
+	default:
+		break;
+	}
+
+	if (config) {
+		/* Configure GPIO for output */
+		gpio_tlmm_config(77, 0, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA, GPIO_ENABLE);
+		/* Output High */
+		gpio_set(77, 2);
+	}
 }
 
 /* Do target specific usb initialization */
@@ -506,14 +630,15 @@ void target_usb_init(void)
 	}
 }
 
-
-/*
- * Function to set the capabilities for the host
- */
-void target_mmc_caps(struct mmc_host *host)
+int target_mmc_bus_width()
 {
-	host->caps.ddr_mode = 1;
-	host->caps.hs200_mode = 1;
-	host->caps.bus_width = MMC_BOOT_BUS_WIDTH_8_BIT;
-	host->caps.hs_clk_rate = MMC_CLK_96MHZ;
+	return MMC_BOOT_BUS_WIDTH_8_BIT;
+}
+
+int  target_get_key_status(uint32_t gpio)
+{
+	if (MPLATFORM()) {
+		unsigned int *addr = (unsigned int *)GPIO_IN_OUT_ADDR(gpio);
+		return readl(addr);
+	}
 }

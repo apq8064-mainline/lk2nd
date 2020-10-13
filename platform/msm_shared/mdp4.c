@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2015 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -229,7 +229,7 @@ void mdp_shutdown(void)
 	writel(0x00000003, MDP_OVERLAYPROC0_CFG);
 }
 
-int mdp_dma_on(struct msm_panel_info *pinfo)
+int mdp_dma_on(void)
 {
 	int ret = 0;
 
@@ -298,41 +298,37 @@ int mdp_dsi_video_config(struct msm_panel_info *pinfo,
 
 	/* Set up CMD_INTF_SEL, VIDEO_INTF_SEL,
 	   EXT_INTF_SEL, SEC_INTF_SEL, PRIM_INTF_SEL */
-	writel(0x00000049, MDP_DISP_INTF_SEL);
-
-	/* DMA P */
-	writel(0x0000000b, MDP_OVERLAYPROC0_CFG);
+	writel(0x00000044, MDP_DISP_INTF_SEL);
 
 	/* write fb addr in MDP_DMA_P_BUF_ADDR */
-	writel(fb->base, MDP_DMA_P_BUF_ADDR);
+	writel(fb->base, MDP_DMA_S_BUF_ADDR);
 
 	/* write active region size*/
 	mdp_rgb_size = (fb->height << 16) + fb->width;
-	writel(mdp_rgb_size, MDP_DMA_P_SIZE);
+	writel(mdp_rgb_size, MDP_DMA_S_SIZE);
 
 	/* set Y-stride value in bytes */
 	/* Y-stride is defined as the number of bytes
 	   in a line.
 	 */
-	writel((fb->stride * fb->bpp/8), MDP_DMA_P_BUF_Y_STRIDE);
+	writel((fb->stride * fb->bpp/8), MDP_DMA_S_BUF_Y_STRIDE);
 
 	/* Start XY coordinates */
-	writel(0, MDP_DMA_P_OUT_XY);
+	writel(0, MDP_DMA_S_OUT_XY);
 
-	if (fb->bpp == 16) {
-		writel(DMA_PACK_ALIGN_LSB | DMA_PACK_PATTERN_RGB |
-			DMA_DITHER_EN |	DMA_OUT_SEL_LCDC |
-			DMA_IBUF_FORMAT_RGB565 | DMA_DSTC0G_8BITS |
-			DMA_DSTC1B_8BITS | DMA_DSTC2R_8BITS,
-			MDP_DMA_P_CONFIG);
-	} else if (fb->bpp == 24) {
-		writel(DMA_PACK_ALIGN_LSB | DMA_PACK_PATTERN_RGB |
-			DMA_DITHER_EN |	DMA_OUT_SEL_LCDC |
-			DMA_IBUF_FORMAT_RGB888 | DMA_DSTC0G_8BITS |
-			DMA_DSTC1B_8BITS | DMA_DSTC2R_8BITS,
-			MDP_DMA_P_CONFIG);
+	if ((fb->bpp == 16) && (fb->format == FB_FORMAT_RGB565)) {
+		writel(DMA_PACK_ALIGN_LSB | DMA_PACK_PATTERN_BGR |
+			DMA_OUT_SEL_LCDC | DMA_IBUF_FORMAT_RGB565 |
+			DMA_DSTC0G_8BITS | DMA_DSTC1B_8BITS |
+			DMA_DSTC2R_8BITS, MDP_DMA_S_CONFIG);
+	} else if ((fb->bpp == 24) && (fb->format == FB_FORMAT_RGB888)) {
+		writel(DMA_PACK_ALIGN_LSB | DMA_PACK_PATTERN_BGR |
+			DMA_OUT_SEL_LCDC | DMA_IBUF_FORMAT_RGB888 |
+			DMA_DSTC0G_8BITS | DMA_DSTC1B_8BITS |
+			DMA_DSTC2R_8BITS, MDP_DMA_S_CONFIG);
 	} else {
-		dprintf(CRITICAL, "Unsupported bpp detected!\n");
+		dprintf(CRITICAL, "Unsupported DSI bpp: %d or format: %d detected!\n",
+							     fb->bpp, fb->format);
 		return ERR_INVALID_ARGS;
 	}
 
@@ -364,7 +360,7 @@ int mdp_dsi_video_config(struct msm_panel_info *pinfo,
 	return ret;
 }
 
-int mdp_dsi_video_on(struct msm_panel_info *pinfo)
+int mdp_dsi_video_on()
 {
 	int ret = NO_ERROR;
 
@@ -407,34 +403,4 @@ void mdp_set_revision(int rev)
 int mdp_get_revision()
 {
 	return mdp_rev;
-}
-
-int mdp_edp_config(struct msm_panel_info *pinfo, struct fbcon_config *fb)
-{
-	return NO_ERROR;
-}
-
-int mdp_edp_on(struct msm_panel_info *pinfo)
-{
-	return NO_ERROR;
-}
-
-int mdp_edp_off(void)
-{
-	return NO_ERROR;
-}
-
-int mdss_hdmi_config(struct msm_panel_info *pinfo, struct fbcon_config *fb)
-{
-	return NO_ERROR;
-}
-
-int mdss_hdmi_on(void)
-{
-	return NO_ERROR;
-}
-
-int mdss_hdmi_off(void)
-{
-	return NO_ERROR;
 }
